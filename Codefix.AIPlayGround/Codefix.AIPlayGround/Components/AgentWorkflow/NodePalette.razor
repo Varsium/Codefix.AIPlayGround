@@ -1,0 +1,89 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="node-palette">
+    <h5>Node Palette</h5>
+    <div class="palette-items">
+        @foreach (var nodeType in AvailableNodeTypes)
+        {
+            <div class="palette-item" @onclick="() => OnNodeSelected.InvokeAsync(nodeType)">
+                <span class="node-icon">@GetNodeIcon(nodeType.Type)</span>
+                <span class="node-label">@nodeType.Label</span>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .node-palette {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        height: 100%;
+    }
+
+    .palette-items {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .palette-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+        user-select: none;
+    }
+
+    .palette-item:hover {
+        border-color: #007bff;
+        background: #e3f2fd;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .node-icon {
+        font-size: 24px;
+        margin-right: 12px;
+        width: 30px;
+        text-align: center;
+    }
+
+    .node-label {
+        font-weight: 500;
+        color: #333;
+    }
+</style>
+
+@code {
+    [Parameter] public EventCallback<NodeType> OnNodeSelected { get; set; }
+
+    private List<NodeType> AvailableNodeTypes = new()
+    {
+        new() { Type = "start", Label = "Start Node", Icon = "🚀" },
+        new() { Type = "agent", Label = "AI Agent", Icon = "🤖" },
+        new() { Type = "function", Label = "Function", Icon = "⚙️" },
+        new() { Type = "condition", Label = "Condition", Icon = "🔀" },
+        new() { Type = "parallel", Label = "Parallel", Icon = "⚡" },
+        new() { Type = "end", Label = "End Node", Icon = "🏁" }
+    };
+
+    private string GetNodeIcon(string nodeType)
+    {
+        return nodeType switch
+        {
+            "start" => "🚀",
+            "end" => "🏁",
+            "agent" => "🤖",
+            "function" => "⚙️",
+            "condition" => "🔀",
+            "parallel" => "⚡",
+            _ => "📦"
+        };
+    }
+}

@@ -1,0 +1,123 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="workflow-properties">
+    <h5>Node Properties</h5>
+    
+    @if (SelectedNode != null)
+    {
+        <div class="properties-form">
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" @bind="SelectedNode.Name" @bind:after="UpdateNode" />
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Type</label>
+                <select class="form-select" @bind="SelectedNode.Type" @bind:after="UpdateNode">
+                    <option value="start">Start</option>
+                    <option value="agent">Agent</option>
+                    <option value="function">Function</option>
+                    <option value="condition">Condition</option>
+                    <option value="parallel">Parallel</option>
+                    <option value="end">End</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select class="form-select" @bind="SelectedNode.Status" @bind:after="UpdateNode">
+                    <option value="idle">Idle</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="error">Error</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Position</label>
+                <div class="row">
+                    <div class="col-6">
+                        <input type="number" class="form-control" @bind="SelectedNode.X" @bind:after="UpdateNode" placeholder="X" />
+                    </div>
+                    <div class="col-6">
+                        <input type="number" class="form-control" @bind="SelectedNode.Y" @bind:after="UpdateNode" placeholder="Y" />
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Size</label>
+                <div class="row">
+                    <div class="col-6">
+                        <input type="number" class="form-control" @bind="SelectedNode.Width" @bind:after="UpdateNode" placeholder="Width" />
+                    </div>
+                    <div class="col-6">
+                        <input type="number" class="form-control" @bind="SelectedNode.Height" @bind:after="UpdateNode" placeholder="Height" />
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Properties</label>
+                <textarea class="form-control" rows="4" placeholder="Additional properties (JSON format)"></textarea>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="no-selection">
+            <p class="text-muted">Select a node to edit its properties</p>
+        </div>
+    }
+</div>
+
+<style>
+    .workflow-properties {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        height: 100%;
+    }
+
+    .properties-form {
+        margin-top: 20px;
+    }
+
+    .no-selection {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        text-align: center;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        padding: 8px 12px;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+</style>
+
+@code {
+    [Parameter] public WorkflowNode? SelectedNode { get; set; }
+    [Parameter] public EventCallback<WorkflowNode> OnNodeUpdated { get; set; }
+
+    private async Task UpdateNode()
+    {
+        if (SelectedNode != null)
+        {
+            await OnNodeUpdated.InvokeAsync(SelectedNode);
+        }
+    }
+}

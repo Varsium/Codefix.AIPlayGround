@@ -1,0 +1,368 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="enhanced-node-palette">
+    <div class="palette-header">
+        <h5>Agent Palette</h5>
+        <div class="palette-search">
+            <input type="text" class="form-control form-control-sm" placeholder="Search agents..." @bind="searchTerm" />
+        </div>
+    </div>
+    
+    <div class="palette-categories">
+        @foreach (var category in GetFilteredCategories())
+        {
+            <div class="category-section">
+                <h6 class="category-title">
+                    <i class="@GetCategoryIcon(category.Key)"></i>
+                    @category.Key
+                </h6>
+                <div class="palette-items">
+                    @foreach (var nodeType in category.Value)
+                    {
+                        <div class="palette-item" 
+                             draggable="true"
+                             @ondragstart="@((DragEventArgs e) => OnDragStart(e, nodeType))"
+                             @onclick="@(() => OnNodeSelected.InvokeAsync(nodeType.Type))">
+                            
+                            <div class="item-icon">
+                                <i class="@GetNodeIcon(nodeType.Type)"></i>
+                            </div>
+                            <div class="item-content">
+                                <div class="item-name">@nodeType.Label</div>
+                                <div class="item-description">@nodeType.Description</div>
+                                <div class="item-tags">
+                                    @foreach (var tag in GetNodeTags(nodeType.Type))
+                                    {
+                                        <span class="tag">@tag</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => AddNodeToCanvas(nodeType.Type))" @onclick:stopPropagation="true">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h6>Quick Actions</h6>
+        <div class="action-buttons">
+            <button class="btn btn-sm btn-outline-success" @onclick="CreateSampleWorkflow">
+                <i class="bi bi-lightning"></i> Sample Workflow
+            </button>
+            <button class="btn btn-sm btn-outline-info" @onclick="ImportFromMermaid">
+                <i class="bi bi-upload"></i> Import Mermaid
+            </button>
+            <button class="btn btn-sm btn-outline-warning" @onclick="ExportToMermaid">
+                <i class="bi bi-download"></i> Export Mermaid
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .enhanced-node-palette {
+        background: #f8f9fa;
+        border-radius: 8px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .palette-header {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background: white;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .palette-header h5 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .palette-search input {
+        border-radius: 20px;
+        border: 1px solid #dee2e6;
+        padding: 5px 12px;
+        font-size: 12px;
+    }
+
+    .palette-categories {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .category-section {
+        margin-bottom: 20px;
+    }
+
+    .category-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 10px;
+        padding: 5px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .category-title i {
+        margin-right: 8px;
+        color: #6c757d;
+    }
+
+    .palette-items {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .palette-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+        user-select: none;
+        position: relative;
+    }
+
+    .palette-item:hover {
+        border-color: #007bff;
+        background: #e3f2fd;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .palette-item:active {
+        transform: translateY(0);
+    }
+
+    .item-icon {
+        font-size: 24px;
+        margin-right: 12px;
+        width: 30px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .item-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .item-name {
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+
+    .item-description {
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 4px;
+        line-height: 1.3;
+    }
+
+    .item-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .tag {
+        font-size: 10px;
+        padding: 2px 6px;
+        background: #e9ecef;
+        color: #495057;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .item-actions {
+        flex-shrink: 0;
+        margin-left: 8px;
+    }
+
+    .quick-actions {
+        padding: 15px;
+        border-top: 1px solid #dee2e6;
+        background: white;
+    }
+
+    .quick-actions h6 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 10px;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .action-buttons .btn {
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 6px;
+    }
+
+    /* Drag and drop styles */
+    .palette-item[draggable="true"] {
+        cursor: grab;
+    }
+
+    .palette-item[draggable="true"]:active {
+        cursor: grabbing;
+    }
+
+    /* Responsive design */
+    @@media (max-width: 768px) {
+        .palette-item {
+            padding: 8px;
+        }
+        
+        .item-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .item-name {
+            font-size: 13px;
+        }
+        
+        .item-description {
+            font-size: 11px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public EventCallback<AgentType> OnNodeSelected { get; set; }
+    [Parameter] public EventCallback<Models.WorkflowDefinition> OnWorkflowCreated { get; set; }
+
+    private string searchTerm = string.Empty;
+    private static AgentType _draggedNodeType;
+
+    private List<AgentTypeDefinition> AvailableNodeTypes = new()
+    {
+        // Core Nodes
+        new() { Type = AgentType.StartNode, Label = "Start Node", Description = "Workflow entry point", Category = "Core" },
+        new() { Type = AgentType.EndNode, Label = "End Node", Description = "Workflow exit point", Category = "Core" },
+        
+        // AI Agents
+        new() { Type = AgentType.LLMAgent, Label = "LLM Agent", Description = "Large Language Model agent with AI capabilities", Category = "AI Agents" },
+        new() { Type = AgentType.ToolAgent, Label = "Tool Agent", Description = "Agent with tool integration capabilities", Category = "AI Agents" },
+        new() { Type = AgentType.MCPAgent, Label = "MCP Agent", Description = "Model Context Protocol agent", Category = "AI Agents" },
+        
+        // Control Flow
+        new() { Type = AgentType.ConditionalAgent, Label = "Conditional Agent", Description = "Agent with conditional logic and branching", Category = "Control Flow" },
+        new() { Type = AgentType.ParallelAgent, Label = "Parallel Agent", Description = "Agent for parallel processing", Category = "Control Flow" },
+        new() { Type = AgentType.CheckpointAgent, Label = "Checkpoint Agent", Description = "Agent with state management and recovery", Category = "Control Flow" },
+        
+        // Functions
+        new() { Type = AgentType.FunctionNode, Label = "Function Node", Description = "Custom function or processing node", Category = "Functions" }
+    };
+
+    private Dictionary<string, List<AgentTypeDefinition>> GetFilteredCategories()
+    {
+        var filtered = AvailableNodeTypes.AsEnumerable();
+        
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            filtered = filtered.Where(n => 
+                n.Label.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                n.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                n.Category.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+        
+        return filtered.GroupBy(n => n.Category).ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private void OnDragStart(DragEventArgs e, AgentTypeDefinition nodeType)
+    {
+        // Store the node type in a static variable for drag operations
+        _draggedNodeType = nodeType.Type;
+    }
+
+    private async Task AddNodeToCanvas(AgentType nodeType)
+    {
+        await OnNodeSelected.InvokeAsync(nodeType);
+    }
+
+    private string GetCategoryIcon(string category)
+    {
+        return category switch
+        {
+            "Core" => "bi bi-circle-fill",
+            "AI Agents" => "bi bi-robot",
+            "Control Flow" => "bi bi-diagram-3",
+            "Functions" => "bi bi-gear-fill",
+            _ => "bi bi-collection"
+        };
+    }
+
+    private string GetNodeIcon(AgentType nodeType)
+    {
+        return nodeType switch
+        {
+            AgentType.StartNode => "bi bi-play-circle-fill",
+            AgentType.EndNode => "bi bi-stop-circle-fill",
+            AgentType.LLMAgent => "bi bi-robot",
+            AgentType.ToolAgent => "bi bi-tools",
+            AgentType.ConditionalAgent => "bi bi-diagram-3",
+            AgentType.ParallelAgent => "bi bi-lightning-fill",
+            AgentType.CheckpointAgent => "bi bi-save-fill",
+            AgentType.MCPAgent => "bi bi-link-45deg",
+            AgentType.FunctionNode => "bi bi-gear-fill",
+            _ => "bi bi-box"
+        };
+    }
+
+    private List<string> GetNodeTags(AgentType nodeType)
+    {
+        return nodeType switch
+        {
+            AgentType.LLMAgent => new List<string> { "AI", "LLM", "GPT" },
+            AgentType.ToolAgent => new List<string> { "Tools", "API" },
+            AgentType.ConditionalAgent => new List<string> { "Logic", "Branch" },
+            AgentType.ParallelAgent => new List<string> { "Async", "Concurrent" },
+            AgentType.CheckpointAgent => new List<string> { "State", "Recovery" },
+            AgentType.MCPAgent => new List<string> { "MCP", "Protocol" },
+            _ => new List<string>()
+        };
+    }
+
+    private async Task CreateSampleWorkflow()
+    {
+        // This would create a sample workflow - implementation depends on your service
+        await Task.CompletedTask;
+    }
+
+    private async Task ImportFromMermaid()
+    {
+        // This would trigger Mermaid import - implementation depends on your service
+        await Task.CompletedTask;
+    }
+
+    private async Task ExportToMermaid()
+    {
+        // This would trigger Mermaid export - implementation depends on your service
+        await Task.CompletedTask;
+    }
+}

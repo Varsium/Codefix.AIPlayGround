@@ -1,0 +1,735 @@
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+
+<div class="enhanced-workflow-canvas">
+    <div class="canvas-header">
+        <h5>Enhanced Workflow Canvas</h5>
+        <div class="canvas-controls">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearCanvas">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+            <button class="btn btn-sm btn-outline-primary" @onclick="SaveWorkflow">
+                <i class="bi bi-save"></i> Save
+            </button>
+            <button class="btn btn-sm btn-outline-info" @onclick="GenerateMermaid">
+                <i class="bi bi-diagram-3"></i> Generate Mermaid
+            </button>
+            <button class="btn btn-sm btn-outline-success" @onclick="ValidateWorkflow">
+                <i class="bi bi-check-circle"></i> Validate
+            </button>
+        </div>
+    </div>
+    
+    <div class="canvas-content">
+        <div class="canvas-area" @ref="canvasAreaRef" 
+             @ondrop="@((DragEventArgs e) => OnDrop(e))" 
+             @ondragover="@((DragEventArgs e) => OnDragOver(e))"
+             @ondragleave="@((DragEventArgs e) => OnDragLeave(e))">
+            
+            <!-- Connection Lines -->
+            <svg class="connection-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#6c757d" />
+                    </marker>
+                    <marker id="arrowhead-selected" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#007bff" />
+                    </marker>
+                </defs>
+                
+                @foreach (var connection in CurrentWorkflow.Connections)
+                {
+                    <path d="@GetConnectionPath(connection)" 
+                          stroke="@(connection.IsSelected ? "#007bff" : "#6c757d")" 
+                          stroke-width="@(connection.IsSelected ? "3" : "2")" 
+                          fill="none" 
+                          marker-end="@(connection.IsSelected ? "url(#arrowhead-selected)" : "url(#arrowhead)")"
+                          class="connection-line @(connection.IsSelected ? "selected" : "")"
+                          @onclick="@(() => SelectConnection(connection))" />
+                }
+            </svg>
+            
+            <!-- Workflow Nodes -->
+            @foreach (var node in CurrentWorkflow.Nodes)
+            {
+                <div class="workflow-node @(node.IsSelected ? "selected" : "")" 
+                     style="left: @(node.X)px; top: @(node.Y)px; width: @(node.Width)px; height: @(node.Height)px;"
+                     @onclick="@(() => SelectNode(node))"
+                     draggable="true"
+                     @ondragstart="@((DragEventArgs e) => OnNodeDragStart(e, node))"
+                     @ondragend="@((DragEventArgs e) => OnNodeDragEnd(e, node))">
+                    
+                    <div class="node-header">
+                        <span class="node-icon">@GetNodeIcon(node.Type)</span>
+                        <span class="node-title">@node.Name</span>
+                        <div class="node-actions">
+                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteNode(node))" @onclick:stopPropagation="true">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="node-content">
+                        <div class="node-ports">
+                            <!-- Input Ports -->
+                            <div class="input-ports">
+                                @foreach (var port in node.InputPorts)
+                                {
+                                    <div class="port input-port" 
+                                         style="top: @(port.Y)px;"
+                                         @onclick="@(() => StartConnection(port, node))"
+                                         @onclick:stopPropagation="true">
+                                        <div class="port-indicator"></div>
+                                    </div>
+                                }
+                            </div>
+                            
+                            <!-- Output Ports -->
+                            <div class="output-ports">
+                                @foreach (var port in node.OutputPorts)
+                                {
+                                    <div class="port output-port" 
+                                         style="top: @(port.Y)px;"
+                                         @onclick="@(() => CompleteConnection(port, node))"
+                                         @onclick:stopPropagation="true">
+                                        <div class="port-indicator"></div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="node-properties">
+                            @if (node.AgentDefinition != null)
+                            {
+                                <div class="property-item">
+                                    <small class="text-muted">Type: @node.AgentDefinition.Type</small>
+                                </div>
+                                @if (node.AgentDefinition.LLMConfig != null)
+                                {
+                                    <div class="property-item">
+                                        <small class="text-muted">Model: @node.AgentDefinition.LLMConfig.ModelName</small>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            <!-- Drop Zone Indicator -->
+            @if (isDragOver)
+            {
+                <div class="drop-zone-indicator">
+                    <div class="drop-zone-content">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Drop node here</span>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <!-- Properties Panel -->
+        <div class="properties-panel">
+            <h6>Properties</h6>
+            @if (selectedNode != null)
+            {
+                <div class="node-properties">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" class="form-control form-control-sm" @bind="selectedNode.Name" @bind:after="UpdateNode" />
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select class="form-control form-control-sm" @bind="selectedNode.Type" @bind:after="UpdateNode">
+                            <option value="StartNode">Start Node</option>
+                            <option value="LLMAgent">LLM Agent</option>
+                            <option value="ToolAgent">Tool Agent</option>
+                            <option value="ConditionalAgent">Conditional Agent</option>
+                            <option value="ParallelAgent">Parallel Agent</option>
+                            <option value="CheckpointAgent">Checkpoint Agent</option>
+                            <option value="MCPAgent">MCP Agent</option>
+                            <option value="EndNode">End Node</option>
+                        </select>
+                    </div>
+                    @if (selectedNode.AgentDefinition?.LLMConfig != null)
+                    {
+                        <div class="form-group">
+                            <label>LLM Model</label>
+                            <select class="form-control form-control-sm" @bind="selectedNode.AgentDefinition.LLMConfig.ModelName" @bind:after="UpdateNode">
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="claude-3">Claude 3</option>
+                                <option value="claude-2">Claude 2</option>
+                            </select>
+                        </div>
+                    }
+                </div>
+            }
+            else if (selectedConnection != null)
+            {
+                <div class="connection-properties">
+                    <div class="form-group">
+                        <label>Label</label>
+                        <input type="text" class="form-control form-control-sm" @bind="selectedConnection.Label" @bind:after="UpdateConnection" />
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select class="form-control form-control-sm" @bind="selectedConnection.ConnectionType" @bind:after="UpdateConnection">
+                            <option value="DataFlow">Data Flow</option>
+                            <option value="ControlFlow">Control Flow</option>
+                            <option value="Conditional">Conditional</option>
+                            <option value="Parallel">Parallel</option>
+                            <option value="Error">Error</option>
+                            <option value="Signal">Signal</option>
+                        </select>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="no-selection">
+                    <p class="text-muted">Select a node or connection to edit properties</p>
+                </div>
+            }
+        </div>
+    </div>
+    
+    <!-- Mermaid Output Panel -->
+    @if (showMermaidPanel)
+    {
+        <div class="mermaid-panel">
+            <div class="panel-header">
+                <h6>Mermaid Diagram</h6>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="CloseMermaidPanel">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="panel-content">
+                <div class="mermaid-input">
+                    <label>Paste Mermaid diagram to import:</label>
+                    <textarea class="form-control" rows="10" @bind="mermaidInput" placeholder="graph TD&#10;    A[Start] --> B[Agent]&#10;    B --> C[End]"></textarea>
+                    <button class="btn btn-primary btn-sm mt-2" @onclick="ImportMermaid">
+                        <i class="bi bi-upload"></i> Import
+                    </button>
+                </div>
+                <div class="mermaid-output">
+                    <label>Generated Mermaid:</label>
+                    <pre class="bg-light p-2 rounded"><code>@mermaidOutput</code></pre>
+                    <button class="btn btn-success btn-sm mt-2" @onclick="CopyMermaid">
+                        <i class="bi bi-clipboard"></i> Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .enhanced-workflow-canvas {
+        background: #f8f9fa;
+        border-radius: 8px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .canvas-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background: white;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .canvas-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .canvas-content {
+        flex: 1;
+        display: flex;
+        position: relative;
+    }
+
+    .canvas-area {
+        flex: 1;
+        position: relative;
+        background: 
+            radial-gradient(circle, #e9ecef 1px, transparent 1px);
+        background-size: 20px 20px;
+        overflow: hidden;
+        cursor: grab;
+    }
+
+    .canvas-area:active {
+        cursor: grabbing;
+    }
+
+    .workflow-node {
+        position: absolute;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        cursor: move;
+        user-select: none;
+        transition: all 0.2s ease;
+        z-index: 10;
+        min-width: 150px;
+        min-height: 80px;
+    }
+
+    .workflow-node:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-1px);
+    }
+
+    .workflow-node.selected {
+        border-color: #007bff;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+    }
+
+    .node-icon {
+        font-size: 16px;
+        margin-right: 8px;
+    }
+
+    .node-title {
+        flex: 1;
+        font-weight: 500;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .node-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .node-content {
+        padding: 8px;
+        position: relative;
+        height: calc(100% - 40px);
+    }
+
+    .node-ports {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+    }
+
+    .port {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        pointer-events: all;
+        cursor: pointer;
+    }
+
+    .input-port {
+        left: -6px;
+    }
+
+    .output-port {
+        right: -6px;
+    }
+
+    .port-indicator {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: #6c757d;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .port:hover .port-indicator {
+        background: #007bff;
+        transform: scale(1.2);
+    }
+
+    .node-properties {
+        margin-top: 8px;
+    }
+
+    .property-item {
+        margin-bottom: 4px;
+    }
+
+    .properties-panel {
+        width: 250px;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        padding: 15px;
+        overflow-y: auto;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #6c757d;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    .connection-line {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .connection-line:hover {
+        stroke: #007bff;
+        stroke-width: 3;
+    }
+
+    .connection-line.selected {
+        stroke: #007bff;
+        stroke-width: 3;
+    }
+
+    .drop-zone-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,123,255,0.1);
+        border: 2px dashed #007bff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+
+    .drop-zone-content {
+        text-align: center;
+        color: #007bff;
+        font-size: 18px;
+        font-weight: 500;
+    }
+
+    .drop-zone-content i {
+        font-size: 48px;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .mermaid-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 400px;
+        height: 100%;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .panel-content {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+    }
+
+    .mermaid-input, .mermaid-output {
+        margin-bottom: 20px;
+    }
+
+    .mermaid-input label, .mermaid-output label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #6c757d;
+        margin-bottom: 5px;
+        display: block;
+    }
+</style>
+
+@code {
+    [Parameter] public string WorkflowId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<Models.WorkflowDefinition> OnWorkflowChanged { get; set; }
+
+    private Models.WorkflowDefinition CurrentWorkflow = new();
+    private ElementReference canvasAreaRef;
+    private EnhancedWorkflowNode? selectedNode;
+    private EnhancedWorkflowConnection? selectedConnection;
+    private bool isDragOver = false;
+    private bool showMermaidPanel = false;
+    private string mermaidInput = string.Empty;
+    private string mermaidOutput = string.Empty;
+    private ConnectionPort? connectionStartPort;
+    private EnhancedWorkflowNode? connectionStartNode;
+    private static AgentType _draggedNodeType;
+    private static EnhancedWorkflowNode? _draggedNode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(WorkflowId))
+        {
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        }
+        else
+        {
+            CurrentWorkflow = await WorkflowService.CreateWorkflowAsync("New Workflow");
+            WorkflowId = CurrentWorkflow.Id;
+        }
+    }
+
+    private async Task OnDrop(DragEventArgs e)
+    {
+        isDragOver = false;
+        // Use the static variable from the palette
+        if (_draggedNodeType != default(AgentType))
+        {
+            var rect = await JSRuntime.InvokeAsync<DOMRect>("getBoundingClientRect", canvasAreaRef);
+            var x = e.ClientX - rect.Left;
+            var y = e.ClientY - rect.Top;
+            
+            await WorkflowService.AddNodeAsync(WorkflowId, _draggedNodeType, x, y);
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+            _draggedNodeType = default(AgentType); // Reset
+            StateHasChanged();
+        }
+    }
+
+    private void OnDragOver(DragEventArgs e)
+    {
+        isDragOver = true;
+        // Note: PreventDefault is not available in Blazor's DragEventArgs
+    }
+
+    private void OnDragLeave(DragEventArgs e)
+    {
+        isDragOver = false;
+    }
+
+    private void OnNodeDragStart(DragEventArgs e, EnhancedWorkflowNode node)
+    {
+        // Store the node for drag operations
+        _draggedNode = node;
+    }
+
+    private async Task OnNodeDragEnd(DragEventArgs e, EnhancedWorkflowNode node)
+    {
+        // Update node position if dragged
+        var rect = await JSRuntime.InvokeAsync<DOMRect>("getBoundingClientRect", canvasAreaRef);
+        var x = e.ClientX - rect.Left;
+        var y = e.ClientY - rect.Top;
+        
+        node.X = Math.Max(0, x);
+        node.Y = Math.Max(0, y);
+        
+        await WorkflowService.UpdateNodeAsync(WorkflowId, node);
+        CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        StateHasChanged();
+    }
+
+    private void SelectNode(EnhancedWorkflowNode node)
+    {
+        // Deselect all nodes and connections
+        foreach (var n in CurrentWorkflow.Nodes)
+            n.IsSelected = false;
+        foreach (var c in CurrentWorkflow.Connections)
+            c.IsSelected = false;
+        
+        node.IsSelected = true;
+        selectedNode = node;
+        selectedConnection = null;
+        StateHasChanged();
+    }
+
+    private void SelectConnection(EnhancedWorkflowConnection connection)
+    {
+        // Deselect all nodes and connections
+        foreach (var n in CurrentWorkflow.Nodes)
+            n.IsSelected = false;
+        foreach (var c in CurrentWorkflow.Connections)
+            c.IsSelected = false;
+        
+        connection.IsSelected = true;
+        selectedConnection = connection;
+        selectedNode = null;
+        StateHasChanged();
+    }
+
+    private async Task DeleteNode(EnhancedWorkflowNode node)
+    {
+        await WorkflowService.RemoveNodeAsync(WorkflowId, node.Id);
+        CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        selectedNode = null;
+        StateHasChanged();
+    }
+
+    private void StartConnection(ConnectionPort port, EnhancedWorkflowNode node)
+    {
+        connectionStartPort = port;
+        connectionStartNode = node;
+    }
+
+    private async Task CompleteConnection(ConnectionPort port, EnhancedWorkflowNode node)
+    {
+        if (connectionStartPort != null && connectionStartNode != null && connectionStartNode.Id != node.Id)
+        {
+            await WorkflowService.AddConnectionAsync(WorkflowId, connectionStartNode.Id, node.Id);
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        }
+        
+        connectionStartPort = null;
+        connectionStartNode = null;
+        StateHasChanged();
+    }
+
+    private async Task UpdateNode()
+    {
+        if (selectedNode != null)
+        {
+            await WorkflowService.UpdateNodeAsync(WorkflowId, selectedNode);
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateConnection()
+    {
+        if (selectedConnection != null)
+        {
+            await WorkflowService.UpdateConnectionAsync(WorkflowId, selectedConnection);
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearCanvas()
+    {
+        CurrentWorkflow.Nodes.Clear();
+        CurrentWorkflow.Connections.Clear();
+        await WorkflowService.UpdateWorkflowAsync(CurrentWorkflow);
+        selectedNode = null;
+        selectedConnection = null;
+        StateHasChanged();
+    }
+
+    private async Task SaveWorkflow()
+    {
+        await WorkflowService.UpdateWorkflowAsync(CurrentWorkflow);
+        await OnWorkflowChanged.InvokeAsync(CurrentWorkflow);
+    }
+
+    private async Task GenerateMermaid()
+    {
+        mermaidOutput = await WorkflowService.GenerateMermaidDiagramAsync(WorkflowId);
+        showMermaidPanel = true;
+        StateHasChanged();
+    }
+
+    private async Task ImportMermaid()
+    {
+        if (!string.IsNullOrEmpty(mermaidInput))
+        {
+            var importedWorkflow = await WorkflowService.ParseMermaidDiagramAsync(mermaidInput);
+            CurrentWorkflow = importedWorkflow;
+            WorkflowId = CurrentWorkflow.Id;
+            await OnWorkflowChanged.InvokeAsync(CurrentWorkflow);
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyMermaid()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", mermaidOutput);
+    }
+
+    private void CloseMermaidPanel()
+    {
+        showMermaidPanel = false;
+        StateHasChanged();
+    }
+
+    private async Task ValidateWorkflow()
+    {
+        var errors = await WorkflowService.ValidateWorkflowAsync(WorkflowId);
+        if (errors.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Validation errors:\n{string.Join("\n", errors)}");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Workflow is valid!");
+        }
+    }
+
+    private string GetConnectionPath(EnhancedWorkflowConnection connection)
+    {
+        var fromNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == connection.FromNodeId);
+        var toNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == connection.ToNodeId);
+        
+        if (fromNode == null || toNode == null)
+            return string.Empty;
+        
+        var startX = fromNode.X + fromNode.Width;
+        var startY = fromNode.Y + fromNode.Height / 2;
+        var endX = toNode.X;
+        var endY = toNode.Y + toNode.Height / 2;
+        
+        var midX = (startX + endX) / 2;
+        
+        return $"M {startX} {startY} Q {midX} {startY} {midX} {endY} Q {midX} {endY} {endX} {endY}";
+    }
+
+    private string GetNodeIcon(string nodeType)
+    {
+        return nodeType.ToLower() switch
+        {
+            "startnode" or "start" => "🚀",
+            "endnode" or "end" => "🏁",
+            "llmagent" or "agent" => "🤖",
+            "toolagent" or "tool" => "🔧",
+            "conditionalagent" or "condition" => "🔀",
+            "parallelagent" or "parallel" => "⚡",
+            "checkpointagent" or "checkpoint" => "💾",
+            "mcpagent" or "mcp" => "🔗",
+            "functionnode" or "function" => "⚙️",
+            _ => "📦"
+        };
+    }
+
+    public class DOMRect
+    {
+        public double Left { get; set; }
+        public double Top { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+}

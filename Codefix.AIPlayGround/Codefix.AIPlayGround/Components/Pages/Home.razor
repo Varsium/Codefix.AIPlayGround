@@ -1,0 +1,457 @@
+﻿@page "/"
+
+<PageTitle>AI Agent Framework Playground</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="hero-section text-center py-5 mb-4">
+                <h1 class="display-4 fw-bold text-primary">🤖 AI Agent Framework Playground</h1>
+                <p class="lead">Build, visualize, and manage AI agent workflows with Microsoft Agent Framework</p>
+                <div class="mt-4">
+                    <span class="badge bg-success me-2">Microsoft Agent Framework</span>
+                    <span class="badge bg-info me-2">Blazor Server</span>
+                    <span class="badge bg-warning me-2">Interactive Builder</span>
+                    <span class="badge bg-secondary">Mermaid Visualization</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🚀 Quick Start</h5>
+                </div>
+                <div class="card-body">
+                    <p>Get started with AI agent workflows in minutes. Our playground provides everything you need to build and visualize agent flows.</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">✅ Pre-built sample workflows</li>
+                        <li class="mb-2">✅ Interactive workflow builder</li>
+                        <li class="mb-2">✅ Real-time visualization</li>
+                        <li class="mb-2">✅ Export capabilities</li>
+                    </ul>
+                    <button class="btn btn-primary w-100" @onclick="ShowVisualizer">
+                        Start Building
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">🎨 Visual Builder</h5>
+                </div>
+                <div class="card-body">
+                    <p>Drag and drop interface for creating complex agent workflows. Visual design makes it easy to understand and modify your agent flows.</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">🎯 Drag & drop nodes</li>
+                        <li class="mb-2">🔗 Connect agents visually</li>
+                        <li class="mb-2">⚙️ Configure properties</li>
+                        <li class="mb-2">💾 Save & load workflows</li>
+                    </ul>
+                    <button class="btn btn-info w-100" @onclick="ShowBuilder">
+                        Open Builder
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Live Visualization</h5>
+                </div>
+                <div class="card-body">
+                    <p>Real-time diagram generation with Mermaid and GraphViz support. See your workflows come to life with beautiful, interactive diagrams.</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">📈 Mermaid diagrams</li>
+                        <li class="mb-2">🔄 GraphViz DOT</li>
+                        <li class="mb-2">📱 Responsive design</li>
+                        <li class="mb-2">📥 Export options</li>
+                    </ul>
+                    <button class="btn btn-success w-100" @onclick="ShowVisualizer">
+                        View Diagrams
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link @(activeTab == "visualizer" ? "active" : "")" 
+                                    @onclick="@(() => SetActiveTab("visualizer"))" 
+                                    type="button" role="tab">
+                                📊 Workflow Visualizer
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link @(activeTab == "builder" ? "active" : "")" 
+                                    @onclick="@(() => SetActiveTab("builder"))" 
+                                    type="button" role="tab">
+                                🎨 Interactive Builder
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link @(activeTab == "docs" ? "active" : "")" 
+                                    @onclick="@(() => SetActiveTab("docs"))" 
+                                    type="button" role="tab">
+                                📚 Documentation
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    @if (activeTab == "visualizer")
+                    {
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Workflow Visualization</h5>
+                                <div class="mb-3">
+                                    <button class="btn btn-primary" @onclick="LoadSampleWorkflow">
+                                        Load Sample Workflow
+                                    </button>
+                                    <button class="btn btn-outline-secondary ms-2" @onclick="GenerateMermaid">
+                                        Generate Mermaid
+                                    </button>
+                                    <button class="btn btn-outline-secondary ms-2" @onclick="GenerateDot">
+                                        Generate DOT
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(diagramContent))
+                                {
+                                    <div class="diagram-container">
+                                        <pre class="bg-light p-3 rounded"><code>@diagramContent</code></pre>
+                                    </div>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Workflow Information</h5>
+                                <div class="workflow-info">
+                                    <p><strong>Name:</strong> @workflowName</p>
+                                    <p><strong>Nodes:</strong> @workflowNodes.Count</p>
+                                    <p><strong>Edges:</strong> @workflowEdges.Count</p>
+                                    <p><strong>Status:</strong> <span class="badge bg-success">Ready</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else if (activeTab == "builder")
+                    {
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h5>Node Palette</h5>
+                                <div class="node-palette">
+                                    <div class="palette-item" @onclick="@(() => AddNode("start"))">
+                                        <span class="node-icon">🚀</span> Start
+                                    </div>
+                                    <div class="palette-item" @onclick="@(() => AddNode("agent"))">
+                                        <span class="node-icon">🤖</span> Agent
+                                    </div>
+                                    <div class="palette-item" @onclick="@(() => AddNode("function"))">
+                                        <span class="node-icon">⚙️</span> Function
+                                    </div>
+                                    <div class="palette-item" @onclick="@(() => AddNode("end"))">
+                                        <span class="node-icon">🏁</span> End
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h5>Workflow Canvas</h5>
+                                <div class="canvas-container">
+                                    @foreach (var node in canvasNodes)
+                                    {
+                                        <div class="canvas-node" style="left: @(node.X)px; top: @(node.Y)px;">
+                                            <div class="node-header">
+                                                <span class="node-icon">@GetNodeIcon(node.Type)</span>
+                                                <span class="node-title">@node.Name</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else if (activeTab == "docs")
+                    {
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Microsoft Agent Framework</h5>
+                                <p>The Microsoft Agent Framework is an open-source development kit for building AI agents and multi-agent workflows for .NET and Python.</p>
+                                <ul>
+                                    <li><strong>AI Agents:</strong> Individual agents that use LLMs to process inputs and generate responses</li>
+                                    <li><strong>Workflows:</strong> Graph-based workflows connecting multiple agents</li>
+                                    <li><strong>Type Safety:</strong> Strong typing ensures messages flow correctly</li>
+                                    <li><strong>Checkpointing:</strong> Save workflow states for recovery</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Key Features</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h6>🔧 Tools & MCP</h6>
+                                        <ul class="small">
+                                            <li>Tool integration</li>
+                                            <li>MCP servers</li>
+                                            <li>External APIs</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6>🔄 Orchestration</h6>
+                                        <ul class="small">
+                                            <li>Multi-agent patterns</li>
+                                            <li>Conditional routing</li>
+                                            <li>Parallel processing</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <a href="https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview" 
+                                       target="_blank" class="btn btn-outline-primary">
+                                        📖 Official Documentation
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+
+    .hero-section h1 {
+        color: white !important;
+    }
+
+    .card {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        border-radius: 0;
+        color: #6c757d;
+    }
+
+    .nav-tabs .nav-link.active {
+        background-color: #f8f9fa;
+        color: #495057;
+        border-bottom: 2px solid #007bff;
+    }
+
+    .badge {
+        font-size: 0.8rem;
+    }
+
+    .diagram-container {
+        min-height: 300px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+
+    .node-palette {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .palette-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+    }
+
+    .palette-item:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+    }
+
+    .node-icon {
+        font-size: 20px;
+        margin-right: 10px;
+    }
+
+    .canvas-container {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        height: 400px;
+        position: relative;
+        background: #f8f9fa;
+    }
+
+    .canvas-node {
+        position: absolute;
+        min-width: 120px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+    }
+
+    .node-title {
+        margin-left: 8px;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    private string activeTab = "visualizer";
+    private string diagramContent = "";
+    private string workflowName = "Sample Workflow";
+    private List<WorkflowNode> workflowNodes = new();
+    private List<WorkflowEdge> workflowEdges = new();
+    private List<CanvasNode> canvasNodes = new();
+
+    public class CanvasNode
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public double X { get; set; }
+        public double Y { get; set; }
+    }
+
+    private void ShowVisualizer()
+    {
+        activeTab = "visualizer";
+        StateHasChanged();
+    }
+
+    private void ShowBuilder()
+    {
+        activeTab = "builder";
+        StateHasChanged();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private void LoadSampleWorkflow()
+    {
+        workflowNodes = new List<WorkflowNode>
+        {
+            new() { Id = "start", Name = "Start", Type = "start" },
+            new() { Id = "research", Name = "Research Agent", Type = "agent" },
+            new() { Id = "analysis", Name = "Analysis Agent", Type = "agent" },
+            new() { Id = "end", Name = "End", Type = "end" }
+        };
+
+        workflowEdges = new List<WorkflowEdge>
+        {
+            new() { From = "start", To = "research", Label = "Begin Research" },
+            new() { From = "research", To = "analysis", Label = "Research Complete" },
+            new() { From = "analysis", To = "end", Label = "Analysis Complete" }
+        };
+
+        workflowName = "Sample Research Workflow";
+        StateHasChanged();
+    }
+
+    private void GenerateMermaid()
+    {
+        diagramContent = @"graph TD
+    A[🚀 Start] --> B[🤖 Research Agent]
+    B --> C[🤖 Analysis Agent]
+    C --> D[🏁 End]
+    
+    style A fill:#90EE90
+    style D fill:#FFB6C1
+    style B fill:#87CEEB
+    style C fill:#87CEEB";
+        StateHasChanged();
+    }
+
+    private void GenerateDot()
+    {
+        diagramContent = @"digraph Workflow {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+    
+    start [label=""Start"", fillcolor=lightgreen, style=""filled,rounded""];
+    agent1 [label=""Research Agent"", fillcolor=lightblue, style=""filled,rounded""];
+    agent2 [label=""Analysis Agent"", fillcolor=lightblue, style=""filled,rounded""];
+    end [label=""End"", fillcolor=lightcoral, style=""filled,rounded""];
+    
+    start -> agent1 [label=""Begin Research""];
+    agent1 -> agent2 [label=""Research Complete""];
+    agent2 -> end [label=""Analysis Complete""];
+}";
+        StateHasChanged();
+    }
+
+    private void AddNode(string nodeType)
+    {
+        var newNode = new CanvasNode
+        {
+            Name = GetDefaultNodeName(nodeType),
+            Type = nodeType,
+            X = Random.Shared.Next(50, 300),
+            Y = Random.Shared.Next(50, 200)
+        };
+
+        canvasNodes.Add(newNode);
+        StateHasChanged();
+    }
+
+    private string GetDefaultNodeName(string nodeType)
+    {
+        return nodeType switch
+        {
+            "start" => "Start",
+            "end" => "End",
+            "agent" => "Agent",
+            "function" => "Function",
+            _ => "Node"
+        };
+    }
+
+    private string GetNodeIcon(string nodeType)
+    {
+        return nodeType switch
+        {
+            "start" => "🚀",
+            "end" => "🏁",
+            "agent" => "🤖",
+            "function" => "⚙️",
+            _ => "📦"
+        };
+    }
+}
