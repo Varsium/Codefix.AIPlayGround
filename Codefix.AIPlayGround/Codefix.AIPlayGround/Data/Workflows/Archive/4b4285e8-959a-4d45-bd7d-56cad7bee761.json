@@ -1,0 +1,193 @@
+{
+  "Id": "4b4285e8-959a-4d45-bd7d-56cad7bee761",
+  "Name": "Quality Assurance Testing",
+  "Description": "Automated software testing, bug detection, and quality assurance workflow",
+  "Version": "2.0.3",
+  "Nodes": [
+    {
+      "Id": "code-commit",
+      "Name": "Code Commit",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "git.commit",
+        "branch": "develop",
+        "author": "developer"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["commit", "rejected"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "unit-tester",
+      "Name": "Unit Test Runner",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "framework": "jest",
+        "coverage": 80,
+        "timeout": 300
+      },
+      "InputPorts": ["code"],
+      "OutputPorts": ["passed", "failed", "partial"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "integration-tester",
+      "Name": "Integration Tests",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "testSuite": "api-tests",
+        "environment": "staging",
+        "parallel": true
+      },
+      "InputPorts": ["code"],
+      "OutputPorts": ["passed", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "security-scanner",
+      "Name": "Security Scanner",
+      "Type": "process",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "scanner": "sonarqube",
+        "vulnerabilityCheck": true,
+        "codeQuality": true
+      },
+      "InputPorts": ["code"],
+      "OutputPorts": ["secure", "vulnerable", "needs-review"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "deployment-gate",
+      "Name": "Deployment Gate",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "approvalRequired": true,
+        "autoDeploy": false,
+        "rollbackOnFailure": true
+      },
+      "InputPorts": ["test-results"],
+      "OutputPorts": ["approved", "rejected", "manual-review"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "code-commit",
+      "ToNodeId": "unit-tester",
+      "FromPort": "commit",
+      "ToPort": "code",
+      "Label": "Code Changes",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "code-commit",
+      "To": "unit-tester"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "unit-tester",
+      "ToNodeId": "integration-tester",
+      "FromPort": "passed",
+      "ToPort": "code",
+      "Label": "Unit Tests Passed",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "unit-tester",
+      "To": "integration-tester"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "unit-tester",
+      "ToNodeId": "security-scanner",
+      "FromPort": "passed",
+      "ToPort": "code",
+      "Label": "Unit Tests Passed",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "unit-tester",
+      "To": "security-scanner"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "integration-tester",
+      "ToNodeId": "deployment-gate",
+      "FromPort": "passed",
+      "ToPort": "test-results",
+      "Label": "Integration Tests Passed",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "integration-tester",
+      "To": "deployment-gate"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "security-scanner",
+      "ToNodeId": "deployment-gate",
+      "FromPort": "secure",
+      "ToPort": "test-results",
+      "Label": "Security Scan Passed",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "security-scanner",
+      "To": "deployment-gate"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["testing", "qa", "security", "ci-cd", "automation"],
+    "Category": "Software Development",
+    "Author": "QA Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "high",
+      "department": "engineering",
+      "test_coverage": "80%"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 30,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "TEST_FRAMEWORK": "https://test-framework.company.com",
+      "SECURITY_SCANNER": "https://security-scanner.company.com",
+      "CI_CD_PIPELINE": "https://ci-cd.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:21:33.1840498Z",
+  "UpdatedAt": "2025-10-13T20:21:33.1840498Z",
+  "CreatedBy": "qa@company.com",
+  "Status": 1
+}

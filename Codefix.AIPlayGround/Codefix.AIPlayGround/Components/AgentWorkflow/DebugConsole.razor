@@ -1,0 +1,437 @@
+@using Codefix.AIPlayGround.Models
+@using System.Timers
+
+<div class="debug-console">
+    <div class="console-header">
+        <h5><i class="bi bi-terminal"></i> Debug Console</h5>
+        <div class="console-controls">
+            <select class="form-select form-select-sm" @bind="logLevel">
+                <option value="all">All Logs</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+                <option value="debug">Debug</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearLogs">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleAutoScroll">
+                <i class="bi bi-@(autoScroll ? "pause" : "play")-fill"></i> @(autoScroll ? "Pause" : "Resume")
+            </button>
+        </div>
+    </div>
+
+    <div class="console-content" @ref="consoleRef">
+        @if (!logs.Any())
+        {
+            <div class="empty-console">
+                <i class="bi bi-terminal"></i>
+                <p>Waiting for logs...</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var log in GetFilteredLogs())
+            {
+                <div class="log-entry log-@log.Level.ToLower()">
+                    <span class="log-time">[@log.Timestamp.ToString("HH:mm:ss.fff")]</span>
+                    <span class="log-level">[@log.Level]</span>
+                    @if (!string.IsNullOrEmpty(log.NodeId))
+                    {
+                        <span class="log-node">[Node: @log.NodeName]</span>
+                    }
+                    <span class="log-message">@log.Message</span>
+                    @if (!string.IsNullOrEmpty(log.StackTrace))
+                    {
+                        <details class="log-stack">
+                            <summary>Stack Trace</summary>
+                            <pre>@log.StackTrace</pre>
+                        </details>
+                    }
+                    @if (log.Data != null && log.Data.Any())
+                    {
+                        <details class="log-data">
+                            <summary>Data</summary>
+                            <pre>@System.Text.Json.JsonSerializer.Serialize(log.Data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })</pre>
+                        </details>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <div class="console-footer">
+        <div class="console-stats">
+            <span class="stat">Total: @logs.Count</span>
+            <span class="stat text-primary">Info: @logs.Count(l => l.Level == "INFO")</span>
+            <span class="stat text-warning">Warning: @logs.Count(l => l.Level == "WARNING")</span>
+            <span class="stat text-danger">Error: @logs.Count(l => l.Level == "ERROR")</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .debug-console {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .console-header {
+        background: #252526;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .console-header h5 {
+        margin: 0;
+        color: #d4d4d4;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .console-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .console-controls .form-select {
+        background: #3c3c3c;
+        color: #d4d4d4;
+        border: 1px solid #3e3e42;
+        font-size: 0.875rem;
+        min-width: 120px;
+    }
+
+    .console-controls .btn {
+        background: #3c3c3c;
+        color: #d4d4d4;
+        border: 1px solid #3e3e42;
+    }
+
+    .console-controls .btn:hover {
+        background: #505050;
+    }
+
+    .console-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        background: #1e1e1e;
+    }
+
+    .empty-console {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+    }
+
+    .empty-console i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    .log-entry {
+        padding: 0.5rem;
+        border-left: 3px solid transparent;
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        transition: background 0.2s ease;
+    }
+
+    .log-entry:hover {
+        background: #2d2d30;
+    }
+
+    .log-entry.log-info {
+        border-left-color: #4fc3f7;
+    }
+
+    .log-entry.log-warning {
+        border-left-color: #ffb74d;
+    }
+
+    .log-entry.log-error {
+        border-left-color: #e57373;
+        background: rgba(229, 115, 115, 0.1);
+    }
+
+    .log-entry.log-debug {
+        border-left-color: #9575cd;
+    }
+
+    .log-time {
+        color: #858585;
+        margin-right: 0.5rem;
+    }
+
+    .log-level {
+        font-weight: 600;
+        margin-right: 0.5rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+    }
+
+    .log-entry.log-info .log-level {
+        background: rgba(79, 195, 247, 0.2);
+        color: #4fc3f7;
+    }
+
+    .log-entry.log-warning .log-level {
+        background: rgba(255, 183, 77, 0.2);
+        color: #ffb74d;
+    }
+
+    .log-entry.log-error .log-level {
+        background: rgba(229, 115, 115, 0.2);
+        color: #e57373;
+    }
+
+    .log-entry.log-debug .log-level {
+        background: rgba(149, 117, 205, 0.2);
+        color: #9575cd;
+    }
+
+    .log-node {
+        color: #67cdcc;
+        margin-right: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .log-message {
+        color: #d4d4d4;
+    }
+
+    .log-stack, .log-data {
+        margin-top: 0.5rem;
+        margin-left: 2rem;
+    }
+
+    .log-stack summary, .log-data summary {
+        cursor: pointer;
+        color: #4fc3f7;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .log-stack summary:hover, .log-data summary:hover {
+        text-decoration: underline;
+    }
+
+    .log-stack pre, .log-data pre {
+        background: #252526;
+        padding: 0.75rem;
+        border-radius: 4px;
+        border: 1px solid #3e3e42;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        color: #d4d4d4;
+        margin: 0;
+    }
+
+    .console-footer {
+        background: #252526;
+        padding: 0.75rem 1.5rem;
+        border-top: 1px solid #3e3e42;
+    }
+
+    .console-stats {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+    }
+
+    .stat {
+        color: #858585;
+    }
+
+    /* Scrollbar styling */
+    .console-content::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .console-content::-webkit-scrollbar-track {
+        background: #1e1e1e;
+    }
+
+    .console-content::-webkit-scrollbar-thumb {
+        background: #424242;
+        border-radius: 5px;
+    }
+
+    .console-content::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+</style>
+
+@code {
+    [Parameter] public string WorkflowId { get; set; } = string.Empty;
+
+    private ElementReference consoleRef;
+    private List<LogEntry> logs = new();
+    private string logLevel = "all";
+    private bool autoScroll = true;
+    private Timer? logGenerator;
+
+    protected override void OnInitialized()
+    {
+        // Generate demo logs
+        GenerateDemoLogs();
+
+        // Simulate real-time logging
+        logGenerator = new Timer(2000);
+        logGenerator.Elapsed += async (sender, e) => await GenerateRandomLog();
+        logGenerator.Start();
+    }
+
+    private void GenerateDemoLogs()
+    {
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddMinutes(-5),
+            Level = "INFO",
+            Message = "Workflow execution started",
+            NodeName = "System"
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddMinutes(-4),
+            Level = "INFO",
+            Message = "Loading agent configurations",
+            NodeName = "System"
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddMinutes(-3),
+            Level = "INFO",
+            Message = "Agent initialized successfully",
+            NodeId = "node-1",
+            NodeName = "Start Node"
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddMinutes(-2),
+            Level = "DEBUG",
+            Message = "Processing input data",
+            NodeId = "node-2",
+            NodeName = "LLM Agent",
+            Data = new Dictionary<string, object>
+            {
+                ["input"] = "User query",
+                ["tokens"] = 42
+            }
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddMinutes(-1),
+            Level = "WARNING",
+            Message = "API rate limit approaching (80% used)",
+            NodeId = "node-2",
+            NodeName = "LLM Agent"
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddSeconds(-30),
+            Level = "ERROR",
+            Message = "Failed to connect to external API",
+            NodeId = "node-3",
+            NodeName = "Tool Agent",
+            StackTrace = "at Codefix.AIPlayGround.Services.ApiService.CallAsync()\nat Codefix.AIPlayGround.Agents.ToolAgent.ExecuteAsync()"
+        });
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow.AddSeconds(-10),
+            Level = "INFO",
+            Message = "Retrying operation...",
+            NodeId = "node-3",
+            NodeName = "Tool Agent"
+        });
+    }
+
+    private async Task GenerateRandomLog()
+    {
+        var random = new Random();
+        var levels = new[] { "INFO", "INFO", "INFO", "DEBUG", "WARNING", "ERROR" };
+        var messages = new[]
+        {
+            "Processing agent output",
+            "State checkpoint saved",
+            "Memory updated",
+            "Cache hit",
+            "Tool execution completed",
+            "Validating response"
+        };
+
+        logs.Add(new LogEntry
+        {
+            Timestamp = DateTime.UtcNow,
+            Level = levels[random.Next(levels.Length)],
+            Message = messages[random.Next(messages.Length)],
+            NodeName = $"Agent-{random.Next(1, 5)}"
+        });
+
+        await InvokeAsync(StateHasChanged);
+
+        if (autoScroll && logs.Count > 100)
+        {
+            logs.RemoveAt(0); // Keep only last 100 logs
+        }
+    }
+
+    private IEnumerable<LogEntry> GetFilteredLogs()
+    {
+        if (logLevel == "all")
+            return logs;
+
+        return logs.Where(l => l.Level.Equals(logLevel, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ClearLogs()
+    {
+        logs.Clear();
+        StateHasChanged();
+    }
+
+    private void ToggleAutoScroll()
+    {
+        autoScroll = !autoScroll;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        logGenerator?.Dispose();
+    }
+
+    private class LogEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string Level { get; set; } = "INFO";
+        public string Message { get; set; } = string.Empty;
+        public string? NodeId { get; set; }
+        public string? NodeName { get; set; }
+        public string? StackTrace { get; set; }
+        public Dictionary<string, object>? Data { get; set; }
+    }
+}
+
+

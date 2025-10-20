@@ -1,0 +1,193 @@
+{
+  "Id": "561f2dee-9fb9-493e-aa5b-fdb678156349",
+  "Name": "Customer Support Ticket System",
+  "Description": "Automated customer support ticket routing and resolution workflow",
+  "Version": "1.4.1",
+  "Nodes": [
+    {
+      "Id": "ticket-created",
+      "Name": "Ticket Created",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "support.ticket.created",
+        "source": "web-portal",
+        "priority": "auto-assign"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["ticket", "duplicate"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "ai-classifier",
+      "Name": "AI Ticket Classifier",
+      "Type": "process",
+      "X": 250,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "model": "bert-classifier",
+        "categories": ["technical", "billing", "general", "bug"],
+        "confidence": 0.8
+      },
+      "InputPorts": ["ticket"],
+      "OutputPorts": ["classified", "needs-review"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "priority-assigner",
+      "Name": "Priority Assignment",
+      "Type": "process",
+      "X": 450,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "rules": ["urgent-keywords", "customer-tier", "issue-type"],
+        "escalation": "auto",
+        "sla": "tier-based"
+      },
+      "InputPorts": ["ticket"],
+      "OutputPorts": ["urgent", "high", "medium", "low"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "agent-router",
+      "Name": "Agent Assignment",
+      "Type": "action",
+      "X": 450,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "routing": "skill-based",
+        "loadBalancing": true,
+        "fallback": "general-pool"
+      },
+      "InputPorts": ["ticket"],
+      "OutputPorts": ["assigned", "queued"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "auto-responder",
+      "Name": "Auto Response",
+      "Type": "action",
+      "X": 650,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "templates": ["acknowledgment", "escalation", "resolution"],
+        "personalization": true,
+        "delay": 5
+      },
+      "InputPorts": ["ticket"],
+      "OutputPorts": ["sent", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "ticket-created",
+      "ToNodeId": "ai-classifier",
+      "FromPort": "ticket",
+      "ToPort": "ticket",
+      "Label": "New Ticket",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ticket-created",
+      "To": "ai-classifier"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "ai-classifier",
+      "ToNodeId": "priority-assigner",
+      "FromPort": "classified",
+      "ToPort": "ticket",
+      "Label": "Classified Ticket",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ai-classifier",
+      "To": "priority-assigner"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "ai-classifier",
+      "ToNodeId": "agent-router",
+      "FromPort": "classified",
+      "ToPort": "ticket",
+      "Label": "Classified Ticket",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ai-classifier",
+      "To": "agent-router"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "priority-assigner",
+      "ToNodeId": "auto-responder",
+      "FromPort": "urgent",
+      "ToPort": "ticket",
+      "Label": "Urgent Ticket",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "priority-assigner",
+      "To": "auto-responder"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "agent-router",
+      "ToNodeId": "auto-responder",
+      "FromPort": "assigned",
+      "ToPort": "ticket",
+      "Label": "Assigned Ticket",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "agent-router",
+      "To": "auto-responder"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["support", "ai", "ticketing", "customer-service"],
+    "Category": "Customer Support",
+    "Author": "Support Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "high",
+      "department": "customer-support",
+      "sla_target": "4h"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 5,
+    "MaxRetryAttempts": 3,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "AI_CLASSIFIER_API": "https://ai-classifier.company.com",
+      "SUPPORT_SYSTEM": "https://support.company.com",
+      "NOTIFICATION_API": "https://notifications.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T19:55:49.7071661Z",
+  "UpdatedAt": "2025-10-13T19:55:49.7071662Z",
+  "CreatedBy": "support@company.com",
+  "Status": 1
+}

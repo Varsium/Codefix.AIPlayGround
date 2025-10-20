@@ -1,0 +1,195 @@
+{
+  "Id": "c1b13137-aa53-4175-b0bb-b891ed9624d8",
+  "Name": "Content Management Workflow",
+  "Description": "Automated content creation, review, and publishing pipeline",
+  "Version": "1.8.2",
+  "Nodes": [
+    {
+      "Id": "content-request",
+      "Name": "Content Request",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "content.request",
+        "source": "cms",
+        "priority": "normal"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["request", "rejected"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "ai-generator",
+      "Name": "AI Content Generator",
+      "Type": "process",
+      "X": 250,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "model": "gpt-4",
+        "tone": "professional",
+        "length": "medium",
+        "includeImages": true
+      },
+      "InputPorts": ["request"],
+      "OutputPorts": ["draft", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "seo-optimizer",
+      "Name": "SEO Optimization",
+      "Type": "process",
+      "X": 450,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "keywords": "auto-detect",
+        "metaDescription": true,
+        "readability": "grade-8",
+        "internalLinks": true
+      },
+      "InputPorts": ["content"],
+      "OutputPorts": ["optimized", "needs-review"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "human-reviewer",
+      "Name": "Human Review",
+      "Type": "action",
+      "X": 450,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "reviewers": ["editor", "subject-matter-expert"],
+        "approvalRequired": 2,
+        "timeout": 24
+      },
+      "InputPorts": ["content"],
+      "OutputPorts": ["approved", "rejected", "needs-changes"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "publisher",
+      "Name": "Content Publisher",
+      "Type": "action",
+      "X": 650,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "platforms": ["website", "social-media", "newsletter"],
+        "schedule": "immediate",
+        "crossPost": true
+      },
+      "InputPorts": ["content"],
+      "OutputPorts": ["published", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "content-request",
+      "ToNodeId": "ai-generator",
+      "FromPort": "request",
+      "ToPort": "request",
+      "Label": "Content Request",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "content-request",
+      "To": "ai-generator"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "ai-generator",
+      "ToNodeId": "seo-optimizer",
+      "FromPort": "draft",
+      "ToPort": "content",
+      "Label": "Draft Content",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ai-generator",
+      "To": "seo-optimizer"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "ai-generator",
+      "ToNodeId": "human-reviewer",
+      "FromPort": "draft",
+      "ToPort": "content",
+      "Label": "Draft Content",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ai-generator",
+      "To": "human-reviewer"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "seo-optimizer",
+      "ToNodeId": "publisher",
+      "FromPort": "optimized",
+      "ToPort": "content",
+      "Label": "Optimized Content",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "seo-optimizer",
+      "To": "publisher"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "human-reviewer",
+      "ToNodeId": "publisher",
+      "FromPort": "approved",
+      "ToPort": "content",
+      "Label": "Approved Content",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "human-reviewer",
+      "To": "publisher"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["content", "ai", "seo", "publishing", "automation"],
+    "Category": "Content Management",
+    "Author": "Marketing Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "medium",
+      "department": "marketing",
+      "content_type": "blog"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 240,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "AI_API": "https://ai-content.company.com",
+      "SEO_API": "https://seo-tools.company.com",
+      "CMS_API": "https://cms.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:03:16.3639135Z",
+  "UpdatedAt": "2025-10-13T20:03:16.3639136Z",
+  "CreatedBy": "marketing@company.com",
+  "Status": 1
+}

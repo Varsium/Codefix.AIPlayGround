@@ -1,0 +1,196 @@
+{
+  "Id": "eb78be56-1616-418e-9c65-6842ab98edb0",
+  "Name": "Smart Document Processing",
+  "Description": "AI-powered document processing, classification, and intelligent routing workflow",
+  "Version": "3.0.1",
+  "Nodes": [
+    {
+      "Id": "document-ingestion",
+      "Name": "Document Ingestion",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "document.upload",
+        "sources": ["email", "upload", "api", "scan"],
+        "formats": ["pdf", "docx", "jpg", "png", "tiff"]
+      },
+      "InputPorts": [],
+      "OutputPorts": ["document", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "ocr-processor",
+      "Name": "OCR Processing",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "engine": "tesseract-v5",
+        "languages": ["en", "es", "fr", "de"],
+        "confidence": 0.85,
+        "preprocessing": true
+      },
+      "InputPorts": ["document"],
+      "OutputPorts": ["text", "confidence-score"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "ai-classifier",
+      "Name": "AI Document Classifier",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "model": "bert-classifier-v2",
+        "categories": ["invoice", "contract", "receipt", "report", "form"],
+        "confidence": 0.9,
+        "extractMetadata": true
+      },
+      "InputPorts": ["text"],
+      "OutputPorts": ["classified", "metadata"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "data-extractor",
+      "Name": "Data Extraction",
+      "Type": "process",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "extractionType": "structured",
+        "fields": ["amount", "date", "vendor", "description"],
+        "validation": true,
+        "normalization": true
+      },
+      "InputPorts": ["document"],
+      "OutputPorts": ["extracted", "validated"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "workflow-router",
+      "Name": "Workflow Router",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "routingRules": ["amount-threshold", "vendor-type", "urgency"],
+        "destinations": ["approval", "accounting", "legal", "archive"],
+        "escalation": "auto"
+      },
+      "InputPorts": ["processed-document"],
+      "OutputPorts": ["routed", "escalated"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "document-ingestion",
+      "ToNodeId": "ocr-processor",
+      "FromPort": "document",
+      "ToPort": "document",
+      "Label": "Document",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "document-ingestion",
+      "To": "ocr-processor"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "ocr-processor",
+      "ToNodeId": "ai-classifier",
+      "FromPort": "text",
+      "ToPort": "text",
+      "Label": "Extracted Text",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ocr-processor",
+      "To": "ai-classifier"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "ocr-processor",
+      "ToNodeId": "data-extractor",
+      "FromPort": "text",
+      "ToPort": "document",
+      "Label": "OCR Text",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ocr-processor",
+      "To": "data-extractor"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "ai-classifier",
+      "ToNodeId": "workflow-router",
+      "FromPort": "classified",
+      "ToPort": "processed-document",
+      "Label": "Classified Document",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ai-classifier",
+      "To": "workflow-router"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "data-extractor",
+      "ToNodeId": "workflow-router",
+      "FromPort": "extracted",
+      "ToPort": "processed-document",
+      "Label": "Extracted Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-extractor",
+      "To": "workflow-router"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["document-processing", "ai", "ocr", "classification", "automation"],
+    "Category": "Document Management",
+    "Author": "IT Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "medium",
+      "department": "it",
+      "processing_volume": "1000/day"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 10,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "OCR_SERVICE": "https://ocr.company.com",
+      "AI_CLASSIFIER_API": "https://ai-classifier.company.com",
+      "DOCUMENT_DB": "https://documents.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:30:25.7890123Z",
+  "UpdatedAt": "2025-10-13T20:30:25.7890124Z",
+  "CreatedBy": "it@company.com",
+  "Status": 1
+}

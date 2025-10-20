@@ -1,0 +1,193 @@
+{
+  "Id": "7e17cacb-7650-4072-bb8a-f82b12a623a4",
+  "Name": "Financial Transaction Processing",
+  "Description": "Automated financial transaction validation, processing, and reconciliation workflow",
+  "Version": "3.1.2",
+  "Nodes": [
+    {
+      "Id": "transaction-received",
+      "Name": "Transaction Received",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "payment.transaction",
+        "source": "payment-gateway",
+        "currency": "USD"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["transaction", "invalid"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "fraud-detector",
+      "Name": "Fraud Detection",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "model": "ml-fraud-v3",
+        "riskThreshold": 0.7,
+        "checks": ["velocity", "geolocation", "behavioral"]
+      },
+      "InputPorts": ["transaction"],
+      "OutputPorts": ["approved", "flagged", "blocked"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "balance-checker",
+      "Name": "Balance Validation",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "checkBalance": true,
+        "allowOverdraft": false,
+        "holdAmount": true
+      },
+      "InputPorts": ["transaction"],
+      "OutputPorts": ["sufficient", "insufficient"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "payment-processor",
+      "Name": "Payment Processing",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "processor": "stripe",
+        "retryAttempts": 3,
+        "timeout": 30
+      },
+      "InputPorts": ["transaction"],
+      "OutputPorts": ["success", "failed", "pending"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "reconciliation",
+      "Name": "Transaction Reconciliation",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "reconcileWith": "bank-statement",
+        "autoMatch": true,
+        "tolerance": 0.01
+      },
+      "InputPorts": ["transaction"],
+      "OutputPorts": ["reconciled", "discrepancy"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "transaction-received",
+      "ToNodeId": "fraud-detector",
+      "FromPort": "transaction",
+      "ToPort": "transaction",
+      "Label": "Transaction Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "transaction-received",
+      "To": "fraud-detector"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "fraud-detector",
+      "ToNodeId": "balance-checker",
+      "FromPort": "approved",
+      "ToPort": "transaction",
+      "Label": "Approved Transaction",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "fraud-detector",
+      "To": "balance-checker"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "fraud-detector",
+      "ToNodeId": "payment-processor",
+      "FromPort": "approved",
+      "ToPort": "transaction",
+      "Label": "Approved Transaction",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "fraud-detector",
+      "To": "payment-processor"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "balance-checker",
+      "ToNodeId": "payment-processor",
+      "FromPort": "sufficient",
+      "ToPort": "transaction",
+      "Label": "Sufficient Balance",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "balance-checker",
+      "To": "payment-processor"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "payment-processor",
+      "ToNodeId": "reconciliation",
+      "FromPort": "success",
+      "ToPort": "transaction",
+      "Label": "Successful Payment",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "payment-processor",
+      "To": "reconciliation"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["finance", "payments", "fraud-detection", "reconciliation"],
+    "Category": "Financial Services",
+    "Author": "Finance Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "critical",
+      "department": "finance",
+      "compliance": "pci-dss"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 2,
+    "MaxRetryAttempts": 3,
+    "ExecutionMode": "sequential",
+    "EnvironmentVariables": {
+      "FRAUD_API": "https://fraud-detection.company.com",
+      "PAYMENT_GATEWAY": "https://payments.company.com",
+      "BANK_API": "https://bank-api.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:02:12.681464Z",
+  "UpdatedAt": "2025-10-13T20:02:12.6814641Z",
+  "CreatedBy": "finance@company.com",
+  "Status": 1
+}

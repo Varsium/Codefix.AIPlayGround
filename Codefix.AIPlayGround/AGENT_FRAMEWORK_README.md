@@ -1,8 +1,146 @@
-# Microsoft Agent Framework Visualizer Implementation
+# Microsoft Agent Framework DevUI Implementation
 
-This implementation adds comprehensive visualization capabilities for Microsoft Agent Framework workflows to your Blazor application.
+This implementation provides a comprehensive Developer UI (DevUI) inspired by the Microsoft Agent Framework for building, testing, debugging, and monitoring AI agent workflows in your Blazor application.
 
-## 🚀 Features Implemented
+## 🚀 DevUI Features
+
+### **Agent DevUI** - Complete Developer Interface (`AgentDevUI.razor`)
+A comprehensive tabbed interface inspired by Microsoft Agent Framework's DevUI for development, testing, and monitoring:
+
+#### 1. **Workflow Canvas Tab** 
+- Visual workflow builder with drag & drop
+- Node palette with 9 agent types (Start, End, LLM, Tool, Conditional, Parallel, Checkpoint, MCP, Function)
+- Real-time connection visualization
+- Node property editing
+- Save/load workflows
+
+#### 2. **Execution Monitor Tab** (`WorkflowExecutionMonitor.razor`)
+- Real-time workflow execution tracking
+- Start/pause/resume/stop controls
+- Execution timeline with step-by-step visualization
+- Performance metrics (duration, status, progress)
+- Output data inspection for each step
+- Error tracking and display
+
+#### 3. **Agent Inspector Tab** (`AgentInspector.razor`)
+- Agent state visualization
+- Configuration viewer (LLM settings, execution settings)
+- Tool inspection
+- Input/output port details
+- Runtime state and metadata
+- Search and filter agents
+
+#### 4. **Debug Console Tab** (`DebugConsole.razor`)
+- Real-time log streaming
+- Log level filtering (Info, Warning, Error, Debug)
+- Stack trace viewer
+- Data payload inspection
+- Auto-scroll and clear functionality
+- VS Code-style dark theme
+
+#### 5. **Testing Tab** (`WorkflowTester.razor`)
+- Interactive workflow testing
+- JSON input configuration
+- Test mode selection (Full, Partial, Single Node)
+- Test history with pass/fail tracking
+- Detailed result inspection
+- Performance metrics per test
+- Error analysis
+
+#### 6. **Checkpoints Tab** (`CheckpointViewer.razor`)
+- Time-travel debugging
+- Checkpoint creation and management
+- State diff visualization
+- Restore to previous states
+- Timeline view of workflow states
+- Node snapshot viewer
+
+#### 7. **Metrics Tab** (`PerformanceMetrics.razor`)
+- Performance analytics dashboard
+- Execution time trends
+- Success/failure rate visualization
+- Cost tracking
+- Node-level performance breakdown
+- Resource usage monitoring (API tokens, memory, cache hit rate)
+- Visual charts and graphs
+
+### Navigation Integration
+- Added "Agent DevUI" link to the main navigation menu
+- Accessible at `/devui` route
+- Supports direct workflow selection via `/devui/{workflowId}`
+
+## 🎯 Quick Start
+
+### Accessing the DevUI
+1. Run your application
+2. Navigate to **Agent DevUI** from the sidebar
+3. Select or create a workflow
+4. Use the tabs to:
+   - **Build** workflows in the Canvas tab
+   - **Execute** and monitor in the Execution tab
+   - **Inspect** agent configurations
+   - **Debug** with real-time logs
+   - **Test** workflows with sample data
+   - **Checkpoint** for time-travel debugging
+   - **Analyze** performance metrics
+
+### Creating Your First Workflow
+1. Go to **Canvas** tab
+2. Drag nodes from the palette
+3. Connect nodes by defining connections
+4. Configure node properties
+5. Click **Save** to persist
+
+### Testing a Workflow
+1. Switch to **Testing** tab
+2. Enter test input data (JSON format)
+3. Click **Run Test**
+4. View execution results and metrics
+5. Check test history for comparisons
+
+## 🏗️ Architecture
+
+### Component Structure
+```
+Components/
+├── AgentWorkflow/
+│   ├── AgentDevUI.razor              # Main DevUI container with tabs
+│   ├── ModernWorkflowCanvas.razor    # Existing workflow builder
+│   ├── WorkflowExecutionMonitor.razor # Real-time execution tracking
+│   ├── AgentInspector.razor          # Agent configuration viewer
+│   ├── DebugConsole.razor            # Log streaming console
+│   ├── WorkflowTester.razor          # Interactive testing interface
+│   ├── CheckpointViewer.razor        # Time-travel debugging
+│   └── PerformanceMetrics.razor      # Analytics dashboard
+├── Pages/
+│   └── DevUI.razor                   # Route definition (/devui)
+└── Layout/
+    └── NavMenu.razor                 # Navigation (updated)
+```
+
+### Data Flow
+1. **DevUI** manages workflow selection and tab state
+2. Each tab component receives:
+   - `WorkflowId`: Current workflow identifier
+   - `CurrentWorkflow`: Workflow definition object
+3. Components use `IEnhancedWorkflowService` for data operations
+4. Real-time updates via `StateHasChanged()` and event callbacks
+
+### Styling
+- Modern gradient color scheme (purple: #667eea, #764ba2)
+- Responsive grid layouts
+- Bootstrap 5 icons (bi bi-*)
+- Dark theme for Debug Console
+- Card-based layouts with hover effects
+
+### Demo Data
+All components include demo/sample data for immediate testing:
+- Execution Monitor: Simulated workflow runs
+- Debug Console: Auto-generated logs
+- Checkpoints: Pre-created workflow states
+- Metrics: Sample performance data
+
+## 🛠️ Previous Visualization Features
 
 ### 1. **Agent Visualization Service** (`AgentVisualizationService.cs`)
 - **Python.NET Integration**: Runs Python visualization code from C#

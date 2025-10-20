@@ -1,0 +1,193 @@
+{
+  "Id": "27744b36-6fd0-4df7-a6ae-c23d01464026",
+  "Name": "HR Employee Onboarding",
+  "Description": "Complete employee onboarding process from offer acceptance to first day setup",
+  "Version": "2.3.0",
+  "Nodes": [
+    {
+      "Id": "offer-accepted",
+      "Name": "Offer Accepted",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "hr.offer.accepted",
+        "position": "software-engineer",
+        "startDate": "2024-01-15"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["accepted", "declined"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "background-check",
+      "Name": "Background Verification",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "checks": ["criminal", "employment", "education"],
+        "vendor": "hire-right",
+        "timeout": 7
+      },
+      "InputPorts": ["candidate"],
+      "OutputPorts": ["passed", "failed", "pending"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "it-setup",
+      "Name": "IT Equipment Setup",
+      "Type": "action",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "equipment": ["laptop", "monitor", "keyboard", "mouse"],
+        "software": ["office365", "ide", "vpn"],
+        "delivery": "office"
+      },
+      "InputPorts": ["employee"],
+      "OutputPorts": ["ready", "delayed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "hr-paperwork",
+      "Name": "HR Documentation",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "documents": ["contract", "benefits", "handbook", "nda"],
+        "digitalSignature": true,
+        "deadline": 3
+      },
+      "InputPorts": ["employee"],
+      "OutputPorts": ["completed", "pending"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "welcome-buddy",
+      "Name": "Assign Welcome Buddy",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "buddyRole": "senior-engineer",
+        "duration": 30,
+        "meetings": ["weekly", "monthly"]
+      },
+      "InputPorts": ["employee"],
+      "OutputPorts": ["assigned", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "offer-accepted",
+      "ToNodeId": "background-check",
+      "FromPort": "accepted",
+      "ToPort": "candidate",
+      "Label": "Candidate Info",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "offer-accepted",
+      "To": "background-check"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "background-check",
+      "ToNodeId": "it-setup",
+      "FromPort": "passed",
+      "ToPort": "employee",
+      "Label": "Verified Employee",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "background-check",
+      "To": "it-setup"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "background-check",
+      "ToNodeId": "hr-paperwork",
+      "FromPort": "passed",
+      "ToPort": "employee",
+      "Label": "Verified Employee",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "background-check",
+      "To": "hr-paperwork"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "it-setup",
+      "ToNodeId": "welcome-buddy",
+      "FromPort": "ready",
+      "ToPort": "employee",
+      "Label": "Ready Employee",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "it-setup",
+      "To": "welcome-buddy"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "hr-paperwork",
+      "ToNodeId": "welcome-buddy",
+      "FromPort": "completed",
+      "ToPort": "employee",
+      "Label": "Documented Employee",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "hr-paperwork",
+      "To": "welcome-buddy"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["hr", "onboarding", "employee", "automation"],
+    "Category": "Human Resources",
+    "Author": "HR Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "high",
+      "department": "hr",
+      "compliance": "gdpr"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 10080,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "HR_SYSTEM": "https://hr.company.com",
+      "IT_SERVICE": "https://it.company.com",
+      "BACKGROUND_API": "https://background-check.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T19:53:28.8702348Z",
+  "UpdatedAt": "2025-10-13T19:53:28.8702348Z",
+  "CreatedBy": "hr@company.com",
+  "Status": 1
+}

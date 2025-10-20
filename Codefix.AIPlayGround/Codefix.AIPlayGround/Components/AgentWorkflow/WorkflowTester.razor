@@ -1,0 +1,621 @@
+@using Codefix.AIPlayGround.Models
+@using System.Text.Json
+
+<div class="workflow-tester">
+    <div class="tester-header">
+        <h5><i class="bi bi-check2-square"></i> Workflow Tester</h5>
+        <div class="tester-actions">
+            <button class="btn btn-primary btn-sm" @onclick="RunTest" disabled="@isRunning">
+                <i class="bi bi-play-fill"></i> Run Test
+            </button>
+            <button class="btn btn-secondary btn-sm" @onclick="ResetTest">
+                <i class="bi bi-arrow-clockwise"></i> Reset
+            </button>
+        </div>
+    </div>
+
+    <div class="tester-content">
+        <div class="test-panel">
+            <div class="panel-section">
+                <h6>Input Configuration</h6>
+                <div class="form-group">
+                    <label>Test Name</label>
+                    <input type="text" class="form-control" @bind="testName" placeholder="Enter test name..." />
+                </div>
+                <div class="form-group">
+                    <label>Input Data (JSON)</label>
+                    <textarea class="form-control code-input" rows="10" @bind="inputJson" placeholder='{"key": "value"}'></textarea>
+                    @if (!string.IsNullOrEmpty(jsonError))
+                    {
+                        <div class="validation-error">
+                            <i class="bi bi-exclamation-triangle"></i> @jsonError
+                        </div>
+                    }
+                </div>
+                <div class="form-group">
+                    <label>Test Mode</label>
+                    <select class="form-select" @bind="testMode">
+                        <option value="full">Full Workflow</option>
+                        <option value="partial">Partial (From Node)</option>
+                        <option value="single">Single Node</option>
+                    </select>
+                </div>
+                @if (testMode != "full")
+                {
+                    <div class="form-group">
+                        <label>Target Node</label>
+                        <select class="form-select" @bind="targetNodeId">
+                            <option value="">Select node...</option>
+                            @if (CurrentWorkflow != null)
+                            {
+                                @foreach (var node in CurrentWorkflow.Nodes)
+                                {
+                                    <option value="@node.Id">@node.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="form-group">
+                    <label class="form-check-label">
+                        <input type="checkbox" class="form-check-input" @bind="enableCheckpoints" />
+                        Enable Checkpoints
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-check-label">
+                        <input type="checkbox" class="form-check-input" @bind="enableDebugLogging" />
+                        Enable Debug Logging
+                    </label>
+                </div>
+            </div>
+
+            @if (testResults.Any())
+            {
+                <div class="panel-section">
+                    <h6>Test History</h6>
+                    <div class="test-history">
+                        @foreach (var result in testResults.OrderByDescending(r => r.Timestamp))
+                        {
+                            <div class="history-item @(result.Success ? "success" : "failure")" @onclick="() => SelectTestResult(result)">
+                                <div class="history-header">
+                                    <span class="history-name">@result.TestName</span>
+                                    <span class="history-status">
+                                        @if (result.Success)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-x-circle-fill text-danger"></i>
+                                        }
+                                    </span>
+                                </div>
+                                <div class="history-time">@result.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                <div class="history-duration">Duration: @result.Duration.TotalSeconds.ToString("F2")s</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="results-panel">
+            @if (isRunning)
+            {
+                <div class="running-indicator">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Running...</span>
+                    </div>
+                    <h6>Test Running...</h6>
+                    <p>Executing workflow with test data</p>
+                </div>
+            }
+            else if (selectedResult != null)
+            {
+                <div class="result-details">
+                    <div class="result-header">
+                        <h6>@selectedResult.TestName</h6>
+                        <span class="result-badge @(selectedResult.Success ? "success" : "failure")">
+                            @(selectedResult.Success ? "PASSED" : "FAILED")
+                        </span>
+                    </div>
+
+                    <div class="result-metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">Duration</div>
+                            <div class="metric-value">@selectedResult.Duration.TotalSeconds.ToString("F2")s</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Nodes Executed</div>
+                            <div class="metric-value">@selectedResult.NodesExecuted</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Timestamp</div>
+                            <div class="metric-value">@selectedResult.Timestamp.ToString("HH:mm:ss")</div>
+                        </div>
+                    </div>
+
+                    <div class="result-section">
+                        <h6>Input Data</h6>
+                        <pre class="json-display">@JsonSerializer.Serialize(selectedResult.InputData, new JsonSerializerOptions { WriteIndented = true })</pre>
+                    </div>
+
+                    <div class="result-section">
+                        <h6>Output Data</h6>
+                        <pre class="json-display">@JsonSerializer.Serialize(selectedResult.OutputData, new JsonSerializerOptions { WriteIndented = true })</pre>
+                    </div>
+
+                    @if (!selectedResult.Success && selectedResult.Errors.Any())
+                    {
+                        <div class="result-section">
+                            <h6>Errors</h6>
+                            @foreach (var error in selectedResult.Errors)
+                            {
+                                <div class="error-item">
+                                    <div class="error-message">
+                                        <i class="bi bi-exclamation-triangle"></i> @error.Message
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(error.StackTrace))
+                                    {
+                                        <details class="error-stack">
+                                            <summary>Stack Trace</summary>
+                                            <pre>@error.StackTrace</pre>
+                                        </details>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="result-section">
+                        <h6>Execution Steps</h6>
+                        @foreach (var step in selectedResult.ExecutionSteps)
+                        {
+                            <div class="step-summary">
+                                <div class="step-name">@step.NodeName</div>
+                                <div class="step-status status-@step.Status.ToLower()">@step.Status</div>
+                                <div class="step-duration">@step.Duration.TotalMilliseconds.ToString("F0")ms</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="empty-results">
+                    <i class="bi bi-clipboard-check"></i>
+                    <h6>No Test Results</h6>
+                    <p>Configure test parameters and click "Run Test" to execute</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .workflow-tester {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: white;
+    }
+
+    .tester-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .tester-header h5 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tester-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .tester-content {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 400px 1fr;
+        overflow: hidden;
+    }
+
+    .test-panel {
+        border-right: 1px solid #dee2e6;
+        overflow-y: auto;
+        background: #f8f9fa;
+    }
+
+    .panel-section {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .panel-section h6 {
+        margin-bottom: 1rem;
+        font-weight: 600;
+        color: #667eea;
+        text-transform: uppercase;
+        font-size: 0.875rem;
+        letter-spacing: 0.5px;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .code-input {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .validation-error {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: #ffebee;
+        color: #c62828;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .test-history {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .history-item {
+        padding: 0.75rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .history-item:hover {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+
+    .history-item.success {
+        border-left: 3px solid #2e7d32;
+    }
+
+    .history-item.failure {
+        border-left: 3px solid #c62828;
+    }
+
+    .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.25rem;
+    }
+
+    .history-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .history-time, .history-duration {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    .results-panel {
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .running-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+    }
+
+    .running-indicator h6 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-results {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+    }
+
+    .empty-results i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    .result-details {
+        max-width: 1000px;
+    }
+
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .result-header h6 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .result-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .result-badge.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .result-badge.failure {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .result-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .result-section {
+        margin-bottom: 2rem;
+    }
+
+    .result-section h6 {
+        margin-bottom: 1rem;
+        font-weight: 600;
+        color: #667eea;
+        text-transform: uppercase;
+        font-size: 0.875rem;
+        letter-spacing: 0.5px;
+    }
+
+    .json-display {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        overflow-x: auto;
+        font-size: 0.875rem;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .error-item {
+        background: #ffebee;
+        border: 1px solid #ffcdd2;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .error-message {
+        color: #c62828;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .error-stack summary {
+        cursor: pointer;
+        color: #667eea;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .error-stack pre {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        overflow-x: auto;
+    }
+
+    .step-summary {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        align-items: center;
+    }
+
+    .step-name {
+        font-weight: 600;
+    }
+
+    .step-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .step-status.status-completed {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .step-status.status-failed {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .step-duration {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+</style>
+
+@code {
+    [Parameter] public string WorkflowId { get; set; } = string.Empty;
+    [Parameter] public Models.WorkflowDefinition? CurrentWorkflow { get; set; }
+
+    private string testName = "Test 1";
+    private string inputJson = "{\n  \"query\": \"Hello, world!\",\n  \"parameters\": {\n    \"temperature\": 0.7\n  }\n}";
+    private string jsonError = string.Empty;
+    private string testMode = "full";
+    private string targetNodeId = string.Empty;
+    private bool enableCheckpoints = true;
+    private bool enableDebugLogging = true;
+    private bool isRunning = false;
+
+    private List<TestResult> testResults = new();
+    private TestResult? selectedResult;
+
+    private async Task RunTest()
+    {
+        jsonError = string.Empty;
+        
+        // Validate JSON
+        try
+        {
+            JsonSerializer.Deserialize<Dictionary<string, object>>(inputJson);
+        }
+        catch (Exception ex)
+        {
+            jsonError = $"Invalid JSON: {ex.Message}";
+            return;
+        }
+
+        isRunning = true;
+        StateHasChanged();
+
+        await Task.Delay(2000); // Simulate test execution
+
+        var result = new TestResult
+        {
+            TestName = testName,
+            Timestamp = DateTime.UtcNow,
+            Success = new Random().Next(0, 10) > 2, // 80% success rate
+            Duration = TimeSpan.FromSeconds(new Random().Next(1, 5)),
+            InputData = JsonSerializer.Deserialize<Dictionary<string, object>>(inputJson)!,
+            OutputData = new Dictionary<string, object>
+            {
+                ["result"] = "Test completed successfully",
+                ["data"] = new { processed = true, count = 42 }
+            },
+            NodesExecuted = CurrentWorkflow?.Nodes.Count ?? 0,
+            ExecutionSteps = CurrentWorkflow?.Nodes.Select(n => new ExecutionStepSummary
+            {
+                NodeName = n.Name,
+                Status = "Completed",
+                Duration = TimeSpan.FromMilliseconds(new Random().Next(100, 1000))
+            }).ToList() ?? new()
+        };
+
+        if (!result.Success)
+        {
+            result.Errors.Add(new ExecutionError
+            {
+                Message = "Simulated test failure",
+                ErrorType = "ValidationError",
+                StackTrace = "at Codefix.AIPlayGround.Tests.WorkflowTester.RunTest()"
+            });
+        }
+
+        testResults.Add(result);
+        selectedResult = result;
+        isRunning = false;
+        StateHasChanged();
+    }
+
+    private void ResetTest()
+    {
+        selectedResult = null;
+        jsonError = string.Empty;
+        StateHasChanged();
+    }
+
+    private void SelectTestResult(TestResult result)
+    {
+        selectedResult = result;
+        StateHasChanged();
+    }
+
+    private class TestResult
+    {
+        public string TestName { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+        public bool Success { get; set; }
+        public TimeSpan Duration { get; set; }
+        public Dictionary<string, object> InputData { get; set; } = new();
+        public Dictionary<string, object> OutputData { get; set; } = new();
+        public int NodesExecuted { get; set; }
+        public List<ExecutionError> Errors { get; set; } = new();
+        public List<ExecutionStepSummary> ExecutionSteps { get; set; } = new();
+    }
+
+    private class ExecutionStepSummary
+    {
+        public string NodeName { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public TimeSpan Duration { get; set; }
+    }
+}
+

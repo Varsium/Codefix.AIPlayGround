@@ -1,0 +1,15 @@
+@page "/devui"
+@page "/devui/{workflowId}"
+@using Codefix.AIPlayGround.Components.AgentWorkflow
+@using Codefix.AIPlayGround.Services
+
+<PageTitle>Agent DevUI - Agent Framework</PageTitle>
+
+<AgentDevUI />
+
+@code {
+    [Parameter]
+    public string? WorkflowId { get; set; }
+}
+
+

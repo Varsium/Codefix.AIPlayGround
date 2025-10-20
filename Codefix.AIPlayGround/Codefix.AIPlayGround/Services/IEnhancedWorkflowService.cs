@@ -10,6 +10,7 @@ public interface IEnhancedWorkflowService
     Task<List<Models.WorkflowDefinition>> GetAllWorkflowsAsync();
     Task<Models.WorkflowDefinition> UpdateWorkflowAsync(Models.WorkflowDefinition workflow);
     Task<bool> DeleteWorkflowAsync(string id);
+    Task ReloadWorkflowsAsync();
     
     // Node Management
     Task<EnhancedWorkflowNode> AddNodeAsync(string workflowId, AgentType nodeType, double x, double y);

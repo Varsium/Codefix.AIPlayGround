@@ -2,5 +2,6 @@
   <Project Path="Codefix.AIPlayGround.AppHost/Codefix.AIPlayGround.AppHost.csproj" />
   <Project Path="Codefix.AIPlayGround.ServiceDefaults/Codefix.AIPlayGround.ServiceDefaults.csproj" />
   <Project Path="Codefix.AIPlayGround/Codefix.AIPlayGround.Client/Codefix.AIPlayGround.Client.csproj" />
+  <Project Path="Codefix.AIPlayGround/Codefix.AIPlayGround.Tests/Codefix.AIPlayGround.Tests.csproj" />
   <Project Path="Codefix.AIPlayGround/Codefix.AIPlayGround/Codefix.AIPlayGround.csproj" />
 </Solution>

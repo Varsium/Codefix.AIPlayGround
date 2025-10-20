@@ -1,7 +1,7 @@
-// Enhanced Workflow Canvas JavaScript Support
+// Workflow Canvas JavaScript functionality
 window.workflowCanvas = {
     // Get bounding client rect for an element
-    getBoundingClientRect: function(element) {
+    getBoundingClientRect: (element) => {
         const rect = element.getBoundingClientRect();
         return {
             left: rect.left,
@@ -11,31 +11,61 @@ window.workflowCanvas = {
         };
     },
 
-    // Initialize drag and drop for canvas
-    initializeDragDrop: function(canvasElement) {
-        canvasElement.addEventListener('dragover', function(e) {
+    // Initialize drag and drop for the canvas
+    initializeCanvasDragDrop: (canvasElement) => {
+        canvasElement.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        canvasElement.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        canvasElement.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const nodeType = e.dataTransfer.getData('text/plain');
+            const rect = canvasElement.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Call Blazor method directly
+            DotNet.invokeMethodAsync('Codefix.AIPlayGround', 'HandleNodeDrop', nodeType, x, y);
+        });
+    },
+
+    // Initialize drag and drop for the canvas
+    initializeDragDrop: (canvasElement) => {
+        canvasElement.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
         });
 
-        canvasElement.addEventListener('drop', function(e) {
+        canvasElement.addEventListener('drop', (e) => {
             e.preventDefault();
             const nodeType = e.dataTransfer.getData('text/plain');
             const rect = canvasElement.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            // Trigger Blazor event
-            DotNet.invokeMethodAsync('Codefix.AIPlayGround', 'OnNodeDropped', nodeType, x, y);
+            // Dispatch custom event to Blazor
+            const event = new CustomEvent('nodeDropped', {
+                detail: { nodeType, x, y }
+            });
+            canvasElement.dispatchEvent(event);
         });
     },
 
     // Initialize node dragging
-    initializeNodeDrag: function(nodeElement) {
+    initializeNodeDrag: (nodeElement, nodeId) => {
         let isDragging = false;
         let startX, startY, initialX, initialY;
 
-        nodeElement.addEventListener('mousedown', function(e) {
+        nodeElement.addEventListener('mousedown', (e) => {
             if (e.target.closest('.node-actions')) return; // Don't drag if clicking on actions
             
             isDragging = true;
@@ -50,145 +80,168 @@ window.workflowCanvas = {
             e.preventDefault();
         });
 
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
             
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
             
-            nodeElement.style.left = (initialX + deltaX) + 'px';
-            nodeElement.style.top = (initialY + deltaY) + 'px';
+            const newX = initialX + deltaX;
+            const newY = initialY + deltaY;
+            
+            // Dispatch custom event to Blazor
+            const event = new CustomEvent('nodeDragged', {
+                detail: { nodeId, x: newX, y: newY }
+            });
+            nodeElement.dispatchEvent(event);
         });
 
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('mouseup', () => {
             if (isDragging) {
                 isDragging = false;
-                nodeElement.style.cursor = 'grab';
+                nodeElement.style.cursor = 'move';
                 
-                // Get final position
-                const rect = nodeElement.getBoundingClientRect();
-                const nodeId = nodeElement.dataset.nodeId;
-                
-                // Trigger Blazor event to update position
-                DotNet.invokeMethodAsync('Codefix.AIPlayGround', 'OnNodeMoved', nodeId, rect.left, rect.top);
+                // Dispatch final position event
+                const event = new CustomEvent('nodeDragEnd', {
+                    detail: { nodeId }
+                });
+                nodeElement.dispatchEvent(event);
             }
         });
     },
 
-    // Initialize connection drawing
-    initializeConnectionDrawing: function(canvasElement) {
-        let isDrawing = false;
-        let startPort = null;
-        let tempLine = null;
-
-        canvasElement.addEventListener('mousedown', function(e) {
-            const port = e.target.closest('.port');
-            if (port && port.classList.contains('output-port')) {
-                isDrawing = true;
-                startPort = port;
-                
-                // Create temporary line
-                tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                tempLine.setAttribute('stroke', '#007bff');
-                tempLine.setAttribute('stroke-width', '2');
-                tempLine.setAttribute('stroke-dasharray', '5,5');
-                
-                const svg = canvasElement.querySelector('.connection-layer');
-                svg.appendChild(tempLine);
-                
-                const rect = port.getBoundingClientRect();
-                const canvasRect = canvasElement.getBoundingClientRect();
-                const x = rect.left + rect.width / 2 - canvasRect.left;
-                const y = rect.top + rect.height / 2 - canvasRect.top;
-                
-                tempLine.setAttribute('x1', x);
-                tempLine.setAttribute('y1', y);
-                tempLine.setAttribute('x2', x);
-                tempLine.setAttribute('y2', y);
-            }
+    // Initialize connection creation
+    initializeConnection: (portElement, nodeId, portType, portIndex) => {
+        portElement.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            
+            const event = new CustomEvent('connectionStart', {
+                detail: { nodeId, portType, portIndex }
+            });
+            portElement.dispatchEvent(event);
         });
+    },
 
-        canvasElement.addEventListener('mousemove', function(e) {
-            if (isDrawing && tempLine) {
-                const canvasRect = canvasElement.getBoundingClientRect();
-                const x = e.clientX - canvasRect.left;
-                const y = e.clientY - canvasRect.top;
-                
-                tempLine.setAttribute('x2', x);
-                tempLine.setAttribute('y2', y);
-            }
-        });
-
-        canvasElement.addEventListener('mouseup', function(e) {
-            if (isDrawing) {
-                const targetPort = e.target.closest('.port');
-                if (targetPort && targetPort.classList.contains('input-port') && targetPort !== startPort) {
-                    // Complete connection
-                    const startNodeId = startPort.closest('.workflow-node').dataset.nodeId;
-                    const targetNodeId = targetPort.closest('.workflow-node').dataset.nodeId;
-                    
-                    DotNet.invokeMethodAsync('Codefix.AIPlayGround', 'OnConnectionCreated', startNodeId, targetNodeId);
-                }
-                
-                // Clean up
-                if (tempLine) {
-                    tempLine.remove();
-                    tempLine = null;
-                }
-                
-                isDrawing = false;
-                startPort = null;
-            }
+    // Initialize drag for palette items
+    initializePaletteDrag: (paletteItem, nodeType) => {
+        paletteItem.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', nodeType);
         });
     },
 
     // Copy text to clipboard
-    copyToClipboard: function(text) {
-        navigator.clipboard.writeText(text).then(function() {
-            console.log('Text copied to clipboard');
-        }).catch(function(err) {
-            console.error('Failed to copy text: ', err);
+    copyToClipboard: (text) => {
+        return navigator.clipboard.writeText(text);
+    },
+
+    // Show alert
+    showAlert: (message) => {
+        alert(message);
+    },
+
+    // Get bounding client rect
+    getBoundingClientRect: (element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height
+        };
+    },
+
+    // Initialize modern drag and drop for the canvas
+    initializeModernDragDrop: (canvasElement, dotNetRef) => {
+        console.log('Initializing modern drag and drop for canvas:', canvasElement);
+        console.log('Canvas element class:', canvasElement.className);
+        console.log('Canvas element ID:', canvasElement.id);
+        console.log('DotNet reference:', dotNetRef);
+        
+        // Remove any existing event listeners
+        canvasElement.removeEventListener('dragover', handleDragOver);
+        canvasElement.removeEventListener('dragleave', handleDragLeave);
+        canvasElement.removeEventListener('drop', handleDrop);
+
+        function handleDragOver(e) {
+            console.log('Drag over event triggered');
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            dotNetRef.invokeMethodAsync('OnDragOver');
+        }
+
+        function handleDragLeave(e) {
+            console.log('Drag leave event triggered');
+            e.preventDefault();
+            e.stopPropagation();
+            dotNetRef.invokeMethodAsync('OnDragLeave');
+        }
+
+        function handleDrop(e) {
+            console.log('Drop event triggered');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Get the node type from the global variable set by the palette
+            const nodeType = window.draggedNodeType || 'StartNode';
+            console.log('Dropped node type:', nodeType);
+            const rect = canvasElement.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            console.log('Drop position:', x, y);
+            
+            dotNetRef.invokeMethodAsync('OnDrop', nodeType, x, y);
+        }
+
+        // Add event listeners
+        canvasElement.addEventListener('dragover', handleDragOver);
+        canvasElement.addEventListener('dragleave', handleDragLeave);
+        canvasElement.addEventListener('drop', handleDrop);
+        
+        console.log('Event listeners added to canvas');
+        
+        // Add global drag event listeners for debugging
+        document.addEventListener('dragstart', (e) => {
+            console.log('Global drag start detected:', e.target);
+        });
+        
+        document.addEventListener('dragover', (e) => {
+            console.log('Global drag over detected:', e.target);
+        });
+        
+        document.addEventListener('drop', (e) => {
+            console.log('Global drop detected:', e.target);
         });
     },
 
-    // Show notification
-    showNotification: function(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-        notification.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Auto remove after 3 seconds
-        setTimeout(function() {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 3000);
+    // Set the dragged node type
+    setDraggedNodeType: (nodeType) => {
+        console.log('Setting dragged node type:', nodeType);
+        window.draggedNodeType = nodeType;
     },
 
-    // Initialize all canvas functionality
-    initialize: function(canvasElement) {
-        this.initializeDragDrop(canvasElement);
-        this.initializeConnectionDrawing(canvasElement);
+    // Test function to manually trigger drag and drop
+    testDragDrop: () => {
+        console.log('Testing drag and drop...');
+        console.log('Current dragged node type:', window.draggedNodeType);
         
-        // Initialize drag for all nodes
-        const nodes = canvasElement.querySelectorAll('.workflow-node');
-        nodes.forEach(node => {
-            this.initializeNodeDrag(node);
-        });
+        // Simulate a drop event
+        const canvas = document.querySelector('.canvas-area');
+        if (canvas) {
+            console.log('Found canvas element:', canvas);
+            const rect = canvas.getBoundingClientRect();
+            const x = rect.width / 2;
+            const y = rect.height / 2;
+            console.log('Simulating drop at:', x, y);
+            
+            // Create a fake drop event
+            const dropEvent = new Event('drop', { bubbles: true });
+            dropEvent.clientX = rect.left + x;
+            dropEvent.clientY = rect.top + y;
+            canvas.dispatchEvent(dropEvent);
+        } else {
+            console.log('Canvas element not found');
+        }
     }
 };
-
-// Auto-initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    const canvas = document.querySelector('.canvas-area');
-    if (canvas) {
-        window.workflowCanvas.initialize(canvas);
-    }
-});

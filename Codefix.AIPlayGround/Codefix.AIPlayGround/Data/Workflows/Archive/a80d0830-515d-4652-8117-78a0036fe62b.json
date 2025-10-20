@@ -1,0 +1,193 @@
+{
+  "Id": "a80d0830-515d-4652-8117-78a0036fe62b",
+  "Name": "Marketing Campaign Automation",
+  "Description": "End-to-end marketing campaign creation, execution, and performance tracking workflow",
+  "Version": "1.6.1",
+  "Nodes": [
+    {
+      "Id": "campaign-request",
+      "Name": "Campaign Request",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "marketing.campaign.request",
+        "campaignType": "email",
+        "targetAudience": "existing-customers"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["request", "rejected"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "audience-segmenter",
+      "Name": "Audience Segmentation",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "segmentationRules": ["demographics", "behavior", "purchase-history"],
+        "aiOptimization": true,
+        "maxSegments": 5
+      },
+      "InputPorts": ["campaign"],
+      "OutputPorts": ["segmented", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "content-generator",
+      "Name": "Content Generator",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "aiModel": "gpt-4",
+        "templates": ["email", "social", "landing-page"],
+        "personalization": true
+      },
+      "InputPorts": ["campaign"],
+      "OutputPorts": ["content", "needs-review"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "channel-distributor",
+      "Name": "Multi-Channel Distribution",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "channels": ["email", "sms", "push", "social"],
+        "scheduling": "optimal-timing",
+        "a-b-testing": true
+      },
+      "InputPorts": ["campaign"],
+      "OutputPorts": ["distributed", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "performance-tracker",
+      "Name": "Performance Analytics",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "metrics": ["open-rate", "click-rate", "conversion", "roi"],
+        "realTimeTracking": true,
+        "reporting": "dashboard"
+      },
+      "InputPorts": ["campaign"],
+      "OutputPorts": ["analytics", "alerts"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "campaign-request",
+      "ToNodeId": "audience-segmenter",
+      "FromPort": "request",
+      "ToPort": "campaign",
+      "Label": "Campaign Request",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "campaign-request",
+      "To": "audience-segmenter"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "audience-segmenter",
+      "ToNodeId": "content-generator",
+      "FromPort": "segmented",
+      "ToPort": "campaign",
+      "Label": "Segmented Campaign",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "audience-segmenter",
+      "To": "content-generator"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "audience-segmenter",
+      "ToNodeId": "channel-distributor",
+      "FromPort": "segmented",
+      "ToPort": "campaign",
+      "Label": "Segmented Campaign",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "audience-segmenter",
+      "To": "channel-distributor"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "content-generator",
+      "ToNodeId": "channel-distributor",
+      "FromPort": "content",
+      "ToPort": "campaign",
+      "Label": "Generated Content",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "content-generator",
+      "To": "channel-distributor"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "channel-distributor",
+      "ToNodeId": "performance-tracker",
+      "FromPort": "distributed",
+      "ToPort": "campaign",
+      "Label": "Active Campaign",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "channel-distributor",
+      "To": "performance-tracker"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["marketing", "automation", "ai", "campaigns", "analytics"],
+    "Category": "Marketing Automation",
+    "Author": "Marketing Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "medium",
+      "department": "marketing",
+      "campaign_budget": "$10000"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 60,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "AI_CONTENT_API": "https://ai-content.company.com",
+      "MARKETING_PLATFORM": "https://marketing.company.com",
+      "ANALYTICS_API": "https://analytics.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:21:26.0888875Z",
+  "UpdatedAt": "2025-10-13T20:21:26.0888875Z",
+  "CreatedBy": "marketing@company.com",
+  "Status": 1
+}

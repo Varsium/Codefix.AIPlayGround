@@ -1,0 +1,193 @@
+{
+  "Id": "4f8b0be1-01e3-4ebd-b422-92c4e609dde4",
+  "Name": "IoT Device Management",
+  "Description": "Automated IoT device monitoring, maintenance, and alert management workflow",
+  "Version": "1.2.4",
+  "Nodes": [
+    {
+      "Id": "device-sensor",
+      "Name": "Device Sensor Data",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "iot.sensor.reading",
+        "deviceType": "temperature-sensor",
+        "frequency": "5min"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["data", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "data-validator",
+      "Name": "Data Validation",
+      "Type": "process",
+      "X": 250,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "rangeCheck": true,
+        "anomalyDetection": true,
+        "dataQuality": "high"
+      },
+      "InputPorts": ["sensor-data"],
+      "OutputPorts": ["valid", "anomaly", "invalid"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "alert-manager",
+      "Name": "Alert Management",
+      "Type": "process",
+      "X": 450,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "thresholds": {"temp": 85, "humidity": 90},
+        "escalation": "auto",
+        "notificationChannels": ["email", "sms", "dashboard"]
+      },
+      "InputPorts": ["data"],
+      "OutputPorts": ["normal", "warning", "critical"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "maintenance-scheduler",
+      "Name": "Maintenance Scheduler",
+      "Type": "action",
+      "X": 450,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "scheduleType": "predictive",
+        "maintenanceWindow": "off-hours",
+        "autoDispatch": true
+      },
+      "InputPorts": ["device-status"],
+      "OutputPorts": ["scheduled", "immediate", "deferred"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "dashboard-updater",
+      "Name": "Dashboard Update",
+      "Type": "action",
+      "X": 650,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "realTime": true,
+        "historicalData": true,
+        "visualizations": ["charts", "gauges", "maps"]
+      },
+      "InputPorts": ["data"],
+      "OutputPorts": ["updated", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "device-sensor",
+      "ToNodeId": "data-validator",
+      "FromPort": "data",
+      "ToPort": "sensor-data",
+      "Label": "Sensor Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "device-sensor",
+      "To": "data-validator"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "data-validator",
+      "ToNodeId": "alert-manager",
+      "FromPort": "valid",
+      "ToPort": "data",
+      "Label": "Valid Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-validator",
+      "To": "alert-manager"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "data-validator",
+      "ToNodeId": "maintenance-scheduler",
+      "FromPort": "anomaly",
+      "ToPort": "device-status",
+      "Label": "Anomaly Detected",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-validator",
+      "To": "maintenance-scheduler"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "alert-manager",
+      "ToNodeId": "dashboard-updater",
+      "FromPort": "normal",
+      "ToPort": "data",
+      "Label": "Normal Status",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "alert-manager",
+      "To": "dashboard-updater"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "alert-manager",
+      "ToNodeId": "dashboard-updater",
+      "FromPort": "critical",
+      "ToPort": "data",
+      "Label": "Critical Alert",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "alert-manager",
+      "To": "dashboard-updater"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["iot", "monitoring", "maintenance", "automation"],
+    "Category": "IoT Management",
+    "Author": "IoT Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "medium",
+      "department": "operations",
+      "device_count": 1000
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 1,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "IOT_PLATFORM": "https://iot.company.com",
+      "ALERT_SERVICE": "https://alerts.company.com",
+      "DASHBOARD_API": "https://dashboard.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:18:33.3093619Z",
+  "UpdatedAt": "2025-10-13T20:18:33.309362Z",
+  "CreatedBy": "iot@company.com",
+  "Status": 1
+}

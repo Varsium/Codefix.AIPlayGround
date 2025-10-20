@@ -1,0 +1,28 @@
+{
+  "Id": "3f26295e-e9dd-4609-8f1b-f3355b9ebf67",
+  "Name": "New Workflow",
+  "Description": "",
+  "Version": "1.0.0",
+  "Nodes": [],
+  "Connections": [],
+  "Metadata": {
+    "Tags": [],
+    "Category": "",
+    "Author": "",
+    "License": "",
+    "CustomProperties": {}
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 60,
+    "MaxRetryAttempts": 3,
+    "ExecutionMode": "sequential",
+    "EnvironmentVariables": {}
+  },
+  "CreatedAt": "2025-10-13T20:32:20.218718Z",
+  "UpdatedAt": "2025-10-13T20:32:20.2187184Z",
+  "CreatedBy": "",
+  "Status": 0
+}

@@ -1,0 +1,721 @@
+@using Codefix.AIPlayGround.Models
+@using System.Text.Json
+
+<div class="checkpoint-viewer">
+    <div class="viewer-header">
+        <h5><i class="bi bi-bookmark"></i> Checkpoint Viewer</h5>
+        <div class="viewer-actions">
+            <button class="btn btn-primary btn-sm" @onclick="CreateCheckpoint">
+                <i class="bi bi-plus-circle"></i> Create Checkpoint
+            </button>
+        </div>
+    </div>
+
+    <div class="viewer-content">
+        @if (!checkpoints.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-bookmark"></i>
+                <h6>No Checkpoints Available</h6>
+                <p>Create checkpoints to save workflow states for time-travel debugging</p>
+            </div>
+        }
+        else
+        {
+            <div class="checkpoints-timeline">
+                <div class="timeline-line"></div>
+                @foreach (var checkpoint in checkpoints.OrderByDescending(c => c.Timestamp))
+                {
+                    <div class="checkpoint-item @(selectedCheckpoint?.Id == checkpoint.Id ? "selected" : "")" @onclick="() => SelectCheckpoint(checkpoint)">
+                        <div class="checkpoint-marker">
+                            <i class="bi bi-bookmark-fill"></i>
+                        </div>
+                        <div class="checkpoint-card">
+                            <div class="checkpoint-header">
+                                <div class="checkpoint-info">
+                                    <span class="checkpoint-name">@checkpoint.Name</span>
+                                    <span class="checkpoint-time">@checkpoint.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                </div>
+                                <div class="checkpoint-actions">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => RestoreCheckpoint(checkpoint)" @onclick:stopPropagation="true">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCheckpoint(checkpoint)" @onclick:stopPropagation="true">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="checkpoint-description">@checkpoint.Description</div>
+                            <div class="checkpoint-stats">
+                                <span class="stat">
+                                    <i class="bi bi-diagram-3"></i> @checkpoint.NodeCount Nodes
+                                </span>
+                                <span class="stat">
+                                    <i class="bi bi-arrow-left-right"></i> @checkpoint.ConnectionCount Connections
+                                </span>
+                                <span class="stat">
+                                    <i class="bi bi-hdd"></i> @FormatBytes(checkpoint.StateSize)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (selectedCheckpoint != null)
+            {
+                <div class="checkpoint-details">
+                    <div class="details-header">
+                        <h6>@selectedCheckpoint.Name</h6>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="CloseDetails">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+
+                    <div class="details-tabs">
+                        <button class="tab-btn @(detailsTab == "state" ? "active" : "")" @onclick='() => detailsTab = "state"'>
+                            State
+                        </button>
+                        <button class="tab-btn @(detailsTab == "nodes" ? "active" : "")" @onclick='() => detailsTab = "nodes"'>
+                            Nodes
+                        </button>
+                        <button class="tab-btn @(detailsTab == "diff" ? "active" : "")" @onclick='() => detailsTab = "diff"'>
+                            Changes
+                        </button>
+                    </div>
+
+                    <div class="details-content">
+                        @if (detailsTab == "state")
+                        {
+                            <div class="state-view">
+                                <div class="info-row">
+                                    <span class="info-label">Checkpoint ID</span>
+                                    <span class="info-value">@selectedCheckpoint.Id.Substring(0, 8)</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Created</span>
+                                    <span class="info-value">@selectedCheckpoint.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Type</span>
+                                    <span class="info-value">@selectedCheckpoint.Type</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Workflow State</span>
+                                    <span class="info-value">@selectedCheckpoint.WorkflowState</span>
+                                </div>
+
+                                <hr />
+
+                                <h6 class="section-title">Workflow Data</h6>
+                                <pre class="json-view">@JsonSerializer.Serialize(selectedCheckpoint.WorkflowData, new JsonSerializerOptions { WriteIndented = true })</pre>
+
+                                @if (selectedCheckpoint.Metadata.Any())
+                                {
+                                    <h6 class="section-title">Metadata</h6>
+                                    <pre class="json-view">@JsonSerializer.Serialize(selectedCheckpoint.Metadata, new JsonSerializerOptions { WriteIndented = true })</pre>
+                                }
+                            </div>
+                        }
+                        else if (detailsTab == "nodes")
+                        {
+                            <div class="nodes-view">
+                                <div class="nodes-grid">
+                                    @foreach (var node in selectedCheckpoint.SavedNodes)
+                                    {
+                                        <div class="node-snapshot">
+                                            <div class="node-header">
+                                                <span class="node-name">@node.Name</span>
+                                                <span class="node-type">@node.Type</span>
+                                            </div>
+                                            <div class="node-status">
+                                                <span class="status-badge status-@node.Status">@node.Status</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else if (detailsTab == "diff")
+                        {
+                            <div class="diff-view">
+                                <div class="diff-summary">
+                                    <div class="diff-stat added">
+                                        <i class="bi bi-plus-circle"></i>
+                                        <span>3 Nodes Added</span>
+                                    </div>
+                                    <div class="diff-stat modified">
+                                        <i class="bi bi-pencil"></i>
+                                        <span>2 Nodes Modified</span>
+                                    </div>
+                                    <div class="diff-stat removed">
+                                        <i class="bi bi-dash-circle"></i>
+                                        <span>1 Node Removed</span>
+                                    </div>
+                                </div>
+
+                                <div class="diff-details">
+                                    <div class="diff-section">
+                                        <h6><i class="bi bi-plus-circle text-success"></i> Added</h6>
+                                        <div class="diff-item added">
+                                            <code>+ Node: "New LLM Agent" (Type: LLMAgent)</code>
+                                        </div>
+                                    </div>
+
+                                    <div class="diff-section">
+                                        <h6><i class="bi bi-pencil text-warning"></i> Modified</h6>
+                                        <div class="diff-item modified">
+                                            <code>~ Node: "Start Node" - Position changed: (100, 100) → (150, 120)</code>
+                                        </div>
+                                    </div>
+
+                                    <div class="diff-section">
+                                        <h6><i class="bi bi-dash-circle text-danger"></i> Removed</h6>
+                                        <div class="diff-item removed">
+                                            <code>- Node: "Old Function Node" (Type: FunctionNode)</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .checkpoint-viewer {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: white;
+    }
+
+    .viewer-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .viewer-header h5 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .viewer-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2rem;
+        position: relative;
+    }
+
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    .checkpoints-timeline {
+        position: relative;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding-left: 3rem;
+    }
+
+    .timeline-line {
+        position: absolute;
+        left: 1.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .checkpoint-item {
+        position: relative;
+        margin-bottom: 2rem;
+        cursor: pointer;
+    }
+
+    .checkpoint-marker {
+        position: absolute;
+        left: -2.25rem;
+        top: 1rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        background: white;
+        border: 3px solid #667eea;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #667eea;
+        font-size: 1.2rem;
+        z-index: 1;
+    }
+
+    .checkpoint-item.selected .checkpoint-marker {
+        background: #667eea;
+        color: white;
+    }
+
+    .checkpoint-card {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .checkpoint-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .checkpoint-item.selected .checkpoint-card {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+
+    .checkpoint-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .checkpoint-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .checkpoint-name {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .checkpoint-time {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .checkpoint-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .checkpoint-description {
+        color: #6c757d;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .checkpoint-stats {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .stat {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .checkpoint-details {
+        position: fixed;
+        top: 10vh;
+        right: 2rem;
+        width: 600px;
+        max-height: 80vh;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+    }
+
+    .details-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .details-header h6 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .details-tabs {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0 1rem;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 1rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.875rem;
+    }
+
+    .tab-btn:hover {
+        color: #667eea;
+    }
+
+    .tab-btn.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+
+    .details-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #667eea;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    .info-value {
+        color: #212529;
+        font-size: 0.875rem;
+    }
+
+    .json-view {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .nodes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .node-snapshot {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .node-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .node-name {
+        font-weight: 600;
+    }
+
+    .node-type {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-badge.status-idle {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .status-badge.status-running {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .status-badge.status-completed {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .diff-summary {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .diff-stat {
+        flex: 1;
+        padding: 1rem;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+    }
+
+    .diff-stat.added {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .diff-stat.modified {
+        background: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .diff-stat.removed {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .diff-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .diff-section h6 {
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .diff-item {
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.875rem;
+    }
+
+    .diff-item.added {
+        background: #e8f5e9;
+        border-left: 3px solid #2e7d32;
+    }
+
+    .diff-item.modified {
+        background: #fff3e0;
+        border-left: 3px solid #ef6c00;
+    }
+
+    .diff-item.removed {
+        background: #ffebee;
+        border-left: 3px solid #c62828;
+    }
+</style>
+
+@code {
+    [Parameter] public string WorkflowId { get; set; } = string.Empty;
+
+    private List<WorkflowCheckpoint> checkpoints = new();
+    private WorkflowCheckpoint? selectedCheckpoint;
+    private string detailsTab = "state";
+
+    protected override void OnInitialized()
+    {
+        // Create demo checkpoints
+        CreateDemoCheckpoints();
+    }
+
+    private void CreateDemoCheckpoints()
+    {
+        checkpoints.Add(new WorkflowCheckpoint
+        {
+            Name = "Initial Workflow State",
+            Description = "Workflow created with 3 basic nodes",
+            Timestamp = DateTime.UtcNow.AddMinutes(-30),
+            Type = "Manual",
+            WorkflowState = "Draft",
+            NodeCount = 3,
+            ConnectionCount = 2,
+            StateSize = 1024 * 15,
+            WorkflowData = new Dictionary<string, object>
+            {
+                ["version"] = "1.0.0",
+                ["status"] = "draft"
+            },
+            SavedNodes = new List<WorkflowNode>
+            {
+                new() { Name = "Start", Type = "Start", Status = "idle" },
+                new() { Name = "Process", Type = "Agent", Status = "idle" },
+                new() { Name = "End", Type = "End", Status = "idle" }
+            }
+        });
+
+        checkpoints.Add(new WorkflowCheckpoint
+        {
+            Name = "After Adding LLM Agent",
+            Description = "Added new LLM agent with GPT-4 configuration",
+            Timestamp = DateTime.UtcNow.AddMinutes(-15),
+            Type = "Automatic",
+            WorkflowState = "Draft",
+            NodeCount = 4,
+            ConnectionCount = 3,
+            StateSize = 1024 * 23,
+            WorkflowData = new Dictionary<string, object>
+            {
+                ["version"] = "1.0.0",
+                ["status"] = "draft",
+                ["lastModified"] = DateTime.UtcNow.AddMinutes(-15)
+            },
+            SavedNodes = new List<WorkflowNode>
+            {
+                new() { Name = "Start", Type = "Start", Status = "idle" },
+                new() { Name = "LLM Agent", Type = "LLMAgent", Status = "idle" },
+                new() { Name = "Process", Type = "Agent", Status = "idle" },
+                new() { Name = "End", Type = "End", Status = "idle" }
+            }
+        });
+
+        checkpoints.Add(new WorkflowCheckpoint
+        {
+            Name = "Before Execution",
+            Description = "Workflow configured and ready for first test run",
+            Timestamp = DateTime.UtcNow.AddMinutes(-5),
+            Type = "Manual",
+            WorkflowState = "Published",
+            NodeCount = 5,
+            ConnectionCount = 4,
+            StateSize = 1024 * 32,
+            WorkflowData = new Dictionary<string, object>
+            {
+                ["version"] = "1.0.0",
+                ["status"] = "published",
+                ["publishedAt"] = DateTime.UtcNow.AddMinutes(-5)
+            },
+            SavedNodes = new List<WorkflowNode>
+            {
+                new() { Name = "Start", Type = "Start", Status = "idle" },
+                new() { Name = "LLM Agent", Type = "LLMAgent", Status = "idle" },
+                new() { Name = "Tool Agent", Type = "ToolAgent", Status = "idle" },
+                new() { Name = "Process", Type = "Agent", Status = "idle" },
+                new() { Name = "End", Type = "End", Status = "idle" }
+            }
+        });
+    }
+
+    private void CreateCheckpoint()
+    {
+        var newCheckpoint = new WorkflowCheckpoint
+        {
+            Name = $"Checkpoint {checkpoints.Count + 1}",
+            Description = "Manual checkpoint created",
+            Timestamp = DateTime.UtcNow,
+            Type = "Manual",
+            WorkflowState = "Running",
+            NodeCount = 5,
+            ConnectionCount = 4,
+            StateSize = 1024 * 35
+        };
+
+        checkpoints.Add(newCheckpoint);
+        StateHasChanged();
+    }
+
+    private void SelectCheckpoint(WorkflowCheckpoint checkpoint)
+    {
+        selectedCheckpoint = checkpoint;
+        detailsTab = "state";
+        StateHasChanged();
+    }
+
+    private void CloseDetails()
+    {
+        selectedCheckpoint = null;
+        StateHasChanged();
+    }
+
+    private void RestoreCheckpoint(WorkflowCheckpoint checkpoint)
+    {
+        // TODO: Implement restore logic
+        Console.WriteLine($"Restoring checkpoint: {checkpoint.Name}");
+    }
+
+    private void DeleteCheckpoint(WorkflowCheckpoint checkpoint)
+    {
+        checkpoints.Remove(checkpoint);
+        if (selectedCheckpoint?.Id == checkpoint.Id)
+        {
+            selectedCheckpoint = null;
+        }
+        StateHasChanged();
+    }
+
+    private string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
+
+    private class WorkflowCheckpoint
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+        public string Type { get; set; } = "Manual"; // Manual, Automatic
+        public string WorkflowState { get; set; } = "Draft";
+        public int NodeCount { get; set; }
+        public int ConnectionCount { get; set; }
+        public long StateSize { get; set; }
+        public Dictionary<string, object> WorkflowData { get; set; } = new();
+        public Dictionary<string, object> Metadata { get; set; } = new();
+        public List<WorkflowNode> SavedNodes { get; set; } = new();
+    }
+}
+
+

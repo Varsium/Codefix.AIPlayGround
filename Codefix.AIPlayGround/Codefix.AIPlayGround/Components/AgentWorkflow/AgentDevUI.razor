@@ -1,0 +1,249 @@
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+
+<div class="agent-devui">
+    <div class="devui-header">
+        <div class="header-brand">
+            <i class="bi bi-grid-3x3-gap"></i>
+            <h4>Agent Framework DevUI</h4>
+        </div>
+        <div class="header-actions">
+            <select class="form-select form-select-sm" @bind="selectedWorkflowId" @bind:after="OnWorkflowChanged">
+                <option value="">Select Workflow...</option>
+                @foreach (var workflow in availableWorkflows)
+                {
+                    <option value="@workflow.Id">@workflow.Name</option>
+                }
+            </select>
+            <button class="btn btn-primary btn-sm" @onclick="RefreshData">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="devui-tabs">
+        <button class="tab-button @(activeTab == "canvas" ? "active" : "")" @onclick='() => SetActiveTab("canvas")'>
+            <i class="bi bi-diagram-3"></i> Canvas
+        </button>
+        <button class="tab-button @(activeTab == "execution" ? "active" : "")" @onclick='() => SetActiveTab("execution")'>
+            <i class="bi bi-play-circle"></i> Execution
+        </button>
+        <button class="tab-button @(activeTab == "inspector" ? "active" : "")" @onclick='() => SetActiveTab("inspector")'>
+            <i class="bi bi-search"></i> Inspector
+        </button>
+        <button class="tab-button @(activeTab == "console" ? "active" : "")" @onclick='() => SetActiveTab("console")'>
+            <i class="bi bi-terminal"></i> Console
+        </button>
+        <button class="tab-button @(activeTab == "testing" ? "active" : "")" @onclick='() => SetActiveTab("testing")'>
+            <i class="bi bi-check2-square"></i> Testing
+        </button>
+        <button class="tab-button @(activeTab == "checkpoints" ? "active" : "")" @onclick='() => SetActiveTab("checkpoints")'>
+            <i class="bi bi-bookmark"></i> Checkpoints
+        </button>
+        <button class="tab-button @(activeTab == "metrics" ? "active" : "")" @onclick='() => SetActiveTab("metrics")'>
+            <i class="bi bi-graph-up"></i> Metrics
+        </button>
+    </div>
+
+    <div class="devui-content">
+        @if (activeTab == "canvas")
+        {
+            <ModernWorkflowCanvas WorkflowId="@selectedWorkflowId" OnWorkflowChanged="OnWorkflowUpdated" />
+        }
+        else if (activeTab == "execution")
+        {
+            <WorkflowExecutionMonitor WorkflowId="@selectedWorkflowId" CurrentWorkflow="@currentWorkflow" />
+        }
+        else if (activeTab == "inspector")
+        {
+            <AgentInspector WorkflowId="@selectedWorkflowId" CurrentWorkflow="@currentWorkflow" />
+        }
+        else if (activeTab == "console")
+        {
+            <DebugConsole WorkflowId="@selectedWorkflowId" />
+        }
+        else if (activeTab == "testing")
+        {
+            <WorkflowTester WorkflowId="@selectedWorkflowId" CurrentWorkflow="@currentWorkflow" />
+        }
+        else if (activeTab == "checkpoints")
+        {
+            <CheckpointViewer WorkflowId="@selectedWorkflowId" />
+        }
+        else if (activeTab == "metrics")
+        {
+            <PerformanceMetrics WorkflowId="@selectedWorkflowId" />
+        }
+    </div>
+</div>
+
+<style>
+    .agent-devui {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+
+    .devui-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .header-brand i {
+        font-size: 1.5rem;
+    }
+
+    .header-brand h4 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .header-actions .form-select {
+        min-width: 200px;
+        background: white;
+        border: none;
+    }
+
+    .devui-tabs {
+        display: flex;
+        background: white;
+        border-bottom: 2px solid #dee2e6;
+        padding: 0 1rem;
+        gap: 0.5rem;
+        overflow-x: auto;
+    }
+
+    .tab-button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: none;
+        border: none;
+        color: #6c757d;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 3px solid transparent;
+        white-space: nowrap;
+    }
+
+    .tab-button:hover {
+        color: #667eea;
+        background: rgba(102, 126, 234, 0.05);
+    }
+
+    .tab-button.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+
+    .tab-button i {
+        font-size: 1.1rem;
+    }
+
+    .devui-content {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* Scrollbar styling */
+    .devui-tabs::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .devui-tabs::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .devui-tabs::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 4px;
+    }
+</style>
+
+@code {
+    private string activeTab = "canvas";
+    private string selectedWorkflowId = string.Empty;
+    private Models.WorkflowDefinition? currentWorkflow;
+    private List<Models.WorkflowDefinition> availableWorkflows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkflows();
+    }
+
+    private async Task LoadWorkflows()
+    {
+        try
+        {
+            availableWorkflows = await WorkflowService.GetAllWorkflowsAsync();
+            if (availableWorkflows.Any() && string.IsNullOrEmpty(selectedWorkflowId))
+            {
+                selectedWorkflowId = availableWorkflows.First().Id;
+                await LoadCurrentWorkflow();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading workflows: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCurrentWorkflow()
+    {
+        if (!string.IsNullOrEmpty(selectedWorkflowId))
+        {
+            currentWorkflow = await WorkflowService.GetWorkflowAsync(selectedWorkflowId);
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task OnWorkflowChanged()
+    {
+        await LoadCurrentWorkflow();
+        StateHasChanged();
+    }
+
+    private async Task OnWorkflowUpdated(Models.WorkflowDefinition workflow)
+    {
+        currentWorkflow = workflow;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadWorkflows();
+        await LoadCurrentWorkflow();
+        StateHasChanged();
+    }
+}
+

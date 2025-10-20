@@ -125,4 +125,12 @@ public class WorkflowDefinition
     public string Name { get; set; } = string.Empty;
     public List<WorkflowNode> Nodes { get; set; } = new();
     public List<WorkflowConnection> Connections { get; set; } = new();
+    public string CreatedBy { get; internal set; }
+    public string Version { get; internal set; }
+    public string Description { get; internal set; }
+    public DateTime CreatedAt { get; internal set; }
+    public DateTime UpdatedAt { get; internal set; }
+    public WorkflowStatus Status { get; internal set; }
+    public WorkflowMetadataEntity Metadata { get; internal set; }
+    public WorkflowSettingsEntity Settings { get; internal set; }
 }

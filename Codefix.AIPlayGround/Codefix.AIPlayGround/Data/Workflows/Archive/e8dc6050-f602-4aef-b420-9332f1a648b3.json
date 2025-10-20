@@ -1,0 +1,181 @@
+{
+  "Id": "e8dc6050-f602-4aef-b420-9332f1a648b3",
+  "Name": "Security Incident Response",
+  "Description": "Automated security incident detection and response workflow",
+  "Version": "2.0.1",
+  "Nodes": [
+    {
+      "Id": "threat-detector",
+      "Name": "Threat Detection",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "security.alert",
+        "severity": "high",
+        "sources": ["ids", "siem", "firewall"]
+      },
+      "InputPorts": [],
+      "OutputPorts": ["alert", "false-positive"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "risk-assessor",
+      "Name": "Risk Assessment",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "riskMatrix": "enterprise",
+        "autoClassify": true,
+        "escalationThreshold": 7
+      },
+      "InputPorts": ["incident"],
+      "OutputPorts": ["critical", "high", "medium", "low"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "auto-response",
+      "Name": "Automated Response",
+      "Type": "action",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "actions": ["isolate", "quarantine", "block"],
+        "scope": "affected-systems",
+        "timeout": 300
+      },
+      "InputPorts": ["incident"],
+      "OutputPorts": ["contained", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "notification-center",
+      "Name": "Security Team Alert",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "channels": ["slack", "email", "sms"],
+        "escalation": "immediate",
+        "recipients": ["security-team", "incident-commander"]
+      },
+      "InputPorts": ["incident"],
+      "OutputPorts": ["notified", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "forensics-collector",
+      "Name": "Forensics Collection",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "collectLogs": true,
+        "memoryDump": true,
+        "networkCapture": true,
+        "retention": "30d"
+      },
+      "InputPorts": ["incident"],
+      "OutputPorts": ["collected", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "threat-detector",
+      "ToNodeId": "risk-assessor",
+      "FromPort": "alert",
+      "ToPort": "incident",
+      "Label": "Security Alert",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "threat-detector",
+      "To": "risk-assessor"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "risk-assessor",
+      "ToNodeId": "auto-response",
+      "FromPort": "critical",
+      "ToPort": "incident",
+      "Label": "Critical Incident",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "risk-assessor",
+      "To": "auto-response"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "risk-assessor",
+      "ToNodeId": "notification-center",
+      "FromPort": "high",
+      "ToPort": "incident",
+      "Label": "High Risk",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "risk-assessor",
+      "To": "notification-center"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "auto-response",
+      "ToNodeId": "forensics-collector",
+      "FromPort": "contained",
+      "ToPort": "incident",
+      "Label": "Contained Incident",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "auto-response",
+      "To": "forensics-collector"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["security", "incident-response", "automation", "threat-detection"],
+    "Category": "Security Operations",
+    "Author": "Security Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "critical",
+      "department": "security",
+      "compliance": "sox"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 15,
+    "MaxRetryAttempts": 1,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "SIEM_ENDPOINT": "https://siem.company.com",
+      "SECURITY_API": "https://security-api.company.com",
+      "NOTIFICATION_SERVICE": "https://alerts.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T19:49:28.4391249Z",
+  "UpdatedAt": "2025-10-13T19:49:28.4391252Z",
+  "CreatedBy": "security@company.com",
+  "Status": 1
+}

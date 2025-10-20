@@ -1,0 +1,143 @@
+{
+  "Id": "1fa7aacd-aab5-4135-8dcd-1355a88ad3db",
+  "Name": "Customer Onboarding Pipeline",
+  "Description": "Automated workflow for processing new customer registrations and initial setup",
+  "Version": "2.1.0",
+  "Nodes": [
+    {
+      "Id": "start-node",
+      "Name": "Customer Registration",
+      "Type": "trigger",
+      "X": 100,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "customer.signup",
+        "timeout": 30
+      },
+      "InputPorts": [],
+      "OutputPorts": ["success", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "validation-node",
+      "Name": "Data Validation",
+      "Type": "process",
+      "X": 350,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "validationRules": ["email", "phone", "address"],
+        "strictMode": true
+      },
+      "InputPorts": ["input"],
+      "OutputPorts": ["valid", "invalid"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "notification-node",
+      "Name": "Welcome Email",
+      "Type": "action",
+      "X": 600,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "template": "welcome-email-v2",
+        "delay": 5
+      },
+      "InputPorts": ["trigger"],
+      "OutputPorts": ["sent", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "setup-node",
+      "Name": "Account Setup",
+      "Type": "process",
+      "X": 600,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "createProfile": true,
+        "assignPermissions": true
+      },
+      "InputPorts": ["input"],
+      "OutputPorts": ["success", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "start-node",
+      "ToNodeId": "validation-node",
+      "FromPort": "success",
+      "ToPort": "input",
+      "Label": "Customer Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "start-node",
+      "To": "validation-node"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "validation-node",
+      "ToNodeId": "notification-node",
+      "FromPort": "valid",
+      "ToPort": "trigger",
+      "Label": "Valid Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "validation-node",
+      "To": "notification-node"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "validation-node",
+      "ToNodeId": "setup-node",
+      "FromPort": "valid",
+      "ToPort": "input",
+      "Label": "Valid Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "validation-node",
+      "To": "setup-node"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["customer", "onboarding", "automation", "email"],
+    "Category": "Customer Management",
+    "Author": "System Admin",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "high",
+      "department": "customer-success"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 30,
+    "MaxRetryAttempts": 3,
+    "ExecutionMode": "sequential",
+    "EnvironmentVariables": {
+      "EMAIL_SERVICE_URL": "https://api.email-service.com",
+      "VALIDATION_API": "https://api.validation.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:09:52.0300223Z",
+  "UpdatedAt": "2025-10-13T20:09:52.0300224Z",
+  "CreatedBy": "admin@company.com",
+  "Status": 1
+}

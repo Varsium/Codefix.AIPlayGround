@@ -1,0 +1,493 @@
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+
+<div class="modern-workflow-canvas">
+    <div class="workflow-header">
+        <h4>Modern Workflow Builder</h4>
+        <div class="workflow-actions">
+            <button class="btn btn-primary btn-sm" @onclick="SaveWorkflow">
+                <i class="bi bi-save"></i> Save
+            </button>
+            <button class="btn btn-secondary btn-sm" @onclick="ClearCanvas">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+        </div>
+    </div>
+    
+    <div class="workflow-content">
+        <!-- Node Palette -->
+        <div class="node-palette">
+            <h6>Node Types</h6>
+            <div class="palette-items">
+                @foreach (var nodeType in AvailableNodeTypes)
+                {
+                    <div class="palette-item" 
+                         draggable="true"
+                         @ondragstart="@((DragEventArgs e) => OnPaletteDragStart(e, nodeType))">
+                        <div class="item-icon">
+                            <i class="@GetNodeIcon(nodeType.Type)"></i>
+                        </div>
+                        <div class="item-content">
+                            <div class="item-title">@nodeType.Label</div>
+                            <div class="item-description">@nodeType.Description</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <!-- Canvas Area -->
+        <div class="canvas-container">
+            <div class="canvas-area" 
+                 @ref="canvasRef"
+                 style="background: @(isDragOver ? "rgba(0, 123, 255, 0.1)" : "white")">
+                
+                @if (isDragOver)
+                {
+                    <div class="drop-indicator">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Drop node here</span>
+                    </div>
+                }
+                
+                <!-- Existing Nodes -->
+                @foreach (var node in CurrentWorkflow.Nodes)
+                {
+                    <div class="workflow-node" 
+                         style="left: @(node.X)px; top: @(node.Y)px;"
+                         @onclick="@(() => SelectNode(node))">
+                        <div class="node-header">
+                            <i class="@GetNodeIcon(node.Type)"></i>
+                            <span>@node.Name</span>
+                        </div>
+                        <div class="node-content">
+                            <small>@node.Type</small>
+                        </div>
+                    </div>
+                }
+                
+                <!-- Connection Lines -->
+                <svg class="connection-layer">
+                    @foreach (var connection in CurrentWorkflow.Connections)
+                    {
+                        <path d="@GetConnectionPath(connection)" 
+                              stroke="#007bff" 
+                              stroke-width="2" 
+                              fill="none" 
+                              marker-end="url(#arrowhead)" />
+                    }
+                </svg>
+            </div>
+        </div>
+        
+        <!-- Properties Panel -->
+        <div class="properties-panel">
+            <h6>Properties</h6>
+            @if (selectedNode != null)
+            {
+                <div class="property-group">
+                    <label>Name</label>
+                    <input type="text" class="form-control" @bind="selectedNode.Name" />
+                </div>
+                <div class="property-group">
+                    <label>Type</label>
+                    <input type="text" class="form-control" value="@selectedNode.Type" readonly />
+                </div>
+                <div class="property-group">
+                    <label>Position</label>
+                    <div class="row">
+                        <div class="col-6">
+                            <input type="number" class="form-control" @bind="selectedNode.X" placeholder="X" />
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control" @bind="selectedNode.Y" placeholder="Y" />
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Select a node to edit properties</p>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .modern-workflow-canvas {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fa;
+    }
+
+    .workflow-header {
+        background: white;
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .workflow-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .node-palette {
+        width: 250px;
+        background: white;
+        border-right: 1px solid #dee2e6;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .palette-items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .palette-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        cursor: grab;
+        transition: all 0.2s ease;
+        background: white;
+    }
+
+    .palette-item:hover {
+        border-color: #007bff;
+        background: #e3f2fd;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .palette-item:active {
+        cursor: grabbing;
+    }
+
+    .item-icon {
+        font-size: 1.5rem;
+        margin-right: 0.75rem;
+        width: 2rem;
+        text-align: center;
+    }
+
+    .item-content {
+        flex: 1;
+    }
+
+    .item-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .item-description {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .canvas-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .canvas-area {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: 
+            radial-gradient(circle, #e9ecef 1px, transparent 1px);
+        background-size: 20px 20px;
+        transition: background-color 0.2s ease;
+    }
+
+    .drop-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #007bff;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .drop-indicator i {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .workflow-node {
+        position: absolute;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        min-width: 120px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .workflow-node:hover {
+        border-color: #007bff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .workflow-node.selected {
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .node-header i {
+        margin-right: 0.5rem;
+        font-size: 1.2rem;
+    }
+
+    .node-content {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .connection-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .properties-panel {
+        width: 250px;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .property-group {
+        margin-bottom: 1rem;
+    }
+
+    .property-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
+    }
+
+    .property-group .form-control {
+        font-size: 0.9rem;
+    }
+</style>
+
+@code {
+    [Parameter] public string WorkflowId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<Models.WorkflowDefinition> OnWorkflowChanged { get; set; }
+
+    private Models.WorkflowDefinition CurrentWorkflow = new();
+    private EnhancedWorkflowNode? selectedNode;
+    private bool isDragOver = false;
+    private AgentType? draggedNodeType;
+    private ElementReference canvasRef;
+
+    private List<AgentTypeDefinition> AvailableNodeTypes = new()
+    {
+        new() { Type = AgentType.StartNode, Label = "Start Node", Description = "Workflow entry point" },
+        new() { Type = AgentType.EndNode, Label = "End Node", Description = "Workflow exit point" },
+        new() { Type = AgentType.LLMAgent, Label = "LLM Agent", Description = "Large Language Model agent" },
+        new() { Type = AgentType.ToolAgent, Label = "Tool Agent", Description = "Tool execution agent" },
+        new() { Type = AgentType.ConditionalAgent, Label = "Conditional", Description = "Conditional logic agent" },
+        new() { Type = AgentType.ParallelAgent, Label = "Parallel", Description = "Parallel execution agent" },
+        new() { Type = AgentType.CheckpointAgent, Label = "Checkpoint", Description = "Save state agent" },
+        new() { Type = AgentType.MCPAgent, Label = "MCP Agent", Description = "Model Context Protocol agent" },
+        new() { Type = AgentType.FunctionNode, Label = "Function", Description = "Custom function node" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(WorkflowId))
+        {
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        }
+        else
+        {
+            CurrentWorkflow = await WorkflowService.CreateWorkflowAsync("New Workflow");
+            WorkflowId = CurrentWorkflow.Id;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                Console.WriteLine("Initializing drag and drop...");
+                await JSRuntime.InvokeVoidAsync("workflowCanvas.initializeModernDragDrop", canvasRef, 
+                    DotNetObjectReference.Create(this));
+                Console.WriteLine("Drag and drop initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing drag and drop: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OnPaletteDragStart(DragEventArgs e, AgentTypeDefinition nodeType)
+    {
+        Console.WriteLine($"Starting drag for node type: {nodeType.Type}");
+        draggedNodeType = nodeType.Type;
+        e.DataTransfer.EffectAllowed = "copy";
+        
+        try
+        {
+            // Set the node type in JavaScript
+            await JSRuntime.InvokeVoidAsync("workflowCanvas.setDraggedNodeType", nodeType.Type.ToString());
+            Console.WriteLine("Node type set in JavaScript successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error setting node type in JavaScript: {ex.Message}");
+        }
+    }
+
+    [JSInvokable("OnDragOver")]
+    public void OnDragOver()
+    {
+        Console.WriteLine("OnDragOver called from JavaScript");
+        isDragOver = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable("OnDragLeave")]
+    public void OnDragLeave()
+    {
+        Console.WriteLine("OnDragLeave called from JavaScript");
+        isDragOver = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable("OnDrop")]
+    public async Task OnDrop(string nodeTypeString, double x, double y)
+    {
+        Console.WriteLine($"OnDrop called from JavaScript: {nodeTypeString} at ({x}, {y})");
+        isDragOver = false;
+        
+        if (Enum.TryParse<AgentType>(nodeTypeString, out var nodeType))
+        {
+            Console.WriteLine($"Adding node of type {nodeType} to workflow");
+            // Add node to workflow
+            await WorkflowService.AddNodeAsync(WorkflowId, nodeType, x, y);
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+            await InvokeAsync(StateHasChanged);
+            Console.WriteLine("Node added successfully");
+        }
+        else
+        {
+            Console.WriteLine($"Failed to parse node type: {nodeTypeString}");
+        }
+    }
+
+    private void SelectNode(EnhancedWorkflowNode node)
+    {
+        selectedNode = node;
+        StateHasChanged();
+    }
+
+    private async Task SaveWorkflow()
+    {
+        await WorkflowService.UpdateWorkflowAsync(CurrentWorkflow);
+        await OnWorkflowChanged.InvokeAsync(CurrentWorkflow);
+    }
+
+    private async Task ClearCanvas()
+    {
+        CurrentWorkflow.Nodes.Clear();
+        CurrentWorkflow.Connections.Clear();
+        await WorkflowService.UpdateWorkflowAsync(CurrentWorkflow);
+        selectedNode = null;
+        StateHasChanged();
+    }
+
+    private string GetNodeIcon(AgentType nodeType)
+    {
+        return nodeType switch
+        {
+            AgentType.StartNode => "bi bi-play-circle",
+            AgentType.EndNode => "bi bi-stop-circle",
+            AgentType.LLMAgent => "bi bi-robot",
+            AgentType.ToolAgent => "bi bi-tools",
+            AgentType.ConditionalAgent => "bi bi-diagram-2",
+            AgentType.ParallelAgent => "bi bi-arrow-split",
+            AgentType.CheckpointAgent => "bi bi-bookmark",
+            AgentType.MCPAgent => "bi bi-link-45deg",
+            AgentType.FunctionNode => "bi bi-gear",
+            _ => "bi bi-circle"
+        };
+    }
+
+    private string GetNodeIcon(string nodeType)
+    {
+        return nodeType.ToLower() switch
+        {
+            "startnode" or "start" => "bi bi-play-circle",
+            "endnode" or "end" => "bi bi-stop-circle",
+            "llmagent" or "agent" => "bi bi-robot",
+            "toolagent" or "tool" => "bi bi-tools",
+            "conditionalagent" or "condition" => "bi bi-diagram-2",
+            "parallelagent" or "parallel" => "bi bi-arrow-split",
+            "checkpointagent" or "checkpoint" => "bi bi-bookmark",
+            "mcpagent" or "mcp" => "bi bi-link-45deg",
+            "functionnode" or "function" => "bi bi-gear",
+            _ => "bi bi-circle"
+        };
+    }
+
+    private string GetConnectionPath(EnhancedWorkflowConnection connection)
+    {
+        var fromNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == connection.FromNodeId);
+        var toNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == connection.ToNodeId);
+        
+        if (fromNode == null || toNode == null)
+            return string.Empty;
+        
+        var startX = fromNode.X + 60; // Approximate node width
+        var startY = fromNode.Y + 30; // Approximate node height / 2
+        var endX = toNode.X;
+        var endY = toNode.Y + 30;
+        
+        var midX = (startX + endX) / 2;
+        
+        return $"M {startX} {startY} Q {midX} {startY} {midX} {endY} Q {midX} {endY} {endX} {endY}";
+    }
+
+    public class DOMRect
+    {
+        public double Left { get; set; }
+        public double Top { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+}

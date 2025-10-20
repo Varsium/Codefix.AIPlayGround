@@ -1,0 +1,193 @@
+{
+  "Id": "e7746730-dad9-40ab-b4f2-1392b4d30990",
+  "Name": "Data Analytics Pipeline",
+  "Description": "Automated data processing and analytics workflow for business intelligence",
+  "Version": "1.5.3",
+  "Nodes": [
+    {
+      "Id": "data-source",
+      "Name": "Data Ingestion",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "source": "database",
+        "schedule": "daily",
+        "format": "json"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["data", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "data-cleaner",
+      "Name": "Data Cleaning",
+      "Type": "process",
+      "X": 250,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "removeDuplicates": true,
+        "handleNulls": "interpolate",
+        "validateSchema": true
+      },
+      "InputPorts": ["raw-data"],
+      "OutputPorts": ["clean", "invalid"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "transformer",
+      "Name": "Data Transformation",
+      "Type": "process",
+      "X": 450,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "aggregations": ["sum", "avg", "count"],
+        "groupBy": ["date", "category"],
+        "calculations": ["growth_rate", "trend"]
+      },
+      "InputPorts": ["data"],
+      "OutputPorts": ["transformed", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "ml-processor",
+      "Name": "ML Analysis",
+      "Type": "process",
+      "X": 450,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "model": "forecasting-v2",
+        "features": ["sales", "seasonality", "trends"],
+        "prediction_horizon": 30
+      },
+      "InputPorts": ["data"],
+      "OutputPorts": ["predictions", "insights"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "report-generator",
+      "Name": "Report Generation",
+      "Type": "action",
+      "X": 650,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "format": "pdf",
+        "template": "executive-summary",
+        "includeCharts": true
+      },
+      "InputPorts": ["analytics"],
+      "OutputPorts": ["report", "error"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "data-source",
+      "ToNodeId": "data-cleaner",
+      "FromPort": "data",
+      "ToPort": "raw-data",
+      "Label": "Raw Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-source",
+      "To": "data-cleaner"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "data-cleaner",
+      "ToNodeId": "transformer",
+      "FromPort": "clean",
+      "ToPort": "data",
+      "Label": "Clean Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-cleaner",
+      "To": "transformer"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "data-cleaner",
+      "ToNodeId": "ml-processor",
+      "FromPort": "clean",
+      "ToPort": "data",
+      "Label": "Clean Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "data-cleaner",
+      "To": "ml-processor"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "transformer",
+      "ToNodeId": "report-generator",
+      "FromPort": "transformed",
+      "ToPort": "analytics",
+      "Label": "Analytics Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "transformer",
+      "To": "report-generator"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "ml-processor",
+      "ToNodeId": "report-generator",
+      "FromPort": "insights",
+      "ToPort": "analytics",
+      "Label": "ML Insights",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "ml-processor",
+      "To": "report-generator"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["analytics", "ml", "data-processing", "business-intelligence"],
+    "Category": "Data Analytics",
+    "Author": "Data Science Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "medium",
+      "department": "analytics",
+      "data_sensitivity": "internal"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 180,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "ML_MODEL_ENDPOINT": "https://ml-api.company.com",
+      "DATA_WAREHOUSE": "https://dw.company.com",
+      "REPORT_SERVICE": "https://reports.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:12:20.7383419Z",
+  "UpdatedAt": "2025-10-13T20:12:20.7383419Z",
+  "CreatedBy": "data-science@company.com",
+  "Status": 1
+}

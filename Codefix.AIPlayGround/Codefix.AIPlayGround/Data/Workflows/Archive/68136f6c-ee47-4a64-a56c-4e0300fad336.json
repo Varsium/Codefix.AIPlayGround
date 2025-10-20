@@ -1,0 +1,193 @@
+{
+  "Id": "68136f6c-ee47-4a64-a56c-4e0300fad336",
+  "Name": "Compliance Monitoring System",
+  "Description": "Automated compliance monitoring and regulatory reporting workflow",
+  "Version": "1.9.2",
+  "Nodes": [
+    {
+      "Id": "regulatory-update",
+      "Name": "Regulatory Update",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "compliance.regulation.update",
+        "sources": ["federal", "state", "industry"],
+        "autoDetect": true
+      },
+      "InputPorts": [],
+      "OutputPorts": ["update", "alert"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "impact-assessor",
+      "Name": "Impact Assessment",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "assessmentType": "automated",
+        "riskLevels": ["low", "medium", "high", "critical"],
+        "affectedAreas": ["operations", "finance", "hr", "it"]
+      },
+      "InputPorts": ["regulation"],
+      "OutputPorts": ["impact", "risk-score"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "gap-analyzer",
+      "Name": "Gap Analysis",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "analysisDepth": "comprehensive",
+        "compareWith": "current-policies",
+        "identifyGaps": true
+      },
+      "InputPorts": ["requirements"],
+      "OutputPorts": ["gaps", "recommendations"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "policy-updater",
+      "Name": "Policy Update",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "updateScope": "targeted",
+        "approvalRequired": true,
+        "notificationChannels": ["email", "slack", "dashboard"]
+      },
+      "InputPorts": ["changes"],
+      "OutputPorts": ["updated", "pending-approval"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "audit-scheduler",
+      "Name": "Audit Scheduler",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "auditTypes": ["internal", "external", "regulatory"],
+        "frequency": "quarterly",
+        "autoSchedule": true
+      },
+      "InputPorts": ["compliance-status"],
+      "OutputPorts": ["scheduled", "reports"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "regulatory-update",
+      "ToNodeId": "impact-assessor",
+      "FromPort": "update",
+      "ToPort": "regulation",
+      "Label": "Regulatory Update",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "regulatory-update",
+      "To": "impact-assessor"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "impact-assessor",
+      "ToNodeId": "gap-analyzer",
+      "FromPort": "impact",
+      "ToPort": "requirements",
+      "Label": "Impact Assessment",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "impact-assessor",
+      "To": "gap-analyzer"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "gap-analyzer",
+      "ToNodeId": "policy-updater",
+      "FromPort": "gaps",
+      "ToPort": "changes",
+      "Label": "Identified Gaps",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "gap-analyzer",
+      "To": "policy-updater"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "policy-updater",
+      "ToNodeId": "audit-scheduler",
+      "FromPort": "updated",
+      "ToPort": "compliance-status",
+      "Label": "Updated Policies",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "policy-updater",
+      "To": "audit-scheduler"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "impact-assessor",
+      "ToNodeId": "audit-scheduler",
+      "FromPort": "risk-score",
+      "ToPort": "compliance-status",
+      "Label": "Risk Score",
+      "Type": "conditional",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "impact-assessor",
+      "To": "audit-scheduler"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["compliance", "regulatory", "audit", "risk-management"],
+    "Category": "Compliance Management",
+    "Author": "Legal Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "critical",
+      "department": "legal",
+      "compliance_framework": "sox-gdpr-hipaa"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 120,
+    "MaxRetryAttempts": 1,
+    "ExecutionMode": "sequential",
+    "EnvironmentVariables": {
+      "REGULATORY_API": "https://regulatory.company.com",
+      "POLICY_DB": "https://policies.company.com",
+      "AUDIT_SYSTEM": "https://audit.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:30:15.4567890Z",
+  "UpdatedAt": "2025-10-13T20:30:15.4567891Z",
+  "CreatedBy": "legal@company.com",
+  "Status": 1
+}

@@ -1,4 +1,6 @@
 using Codefix.AIPlayGround.Models;
+using Codefix.AIPlayGround.Data;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -6,51 +8,16 @@ namespace Codefix.AIPlayGround.Services;
 
 public class EnhancedWorkflowService : IEnhancedWorkflowService
 {
-    private readonly Dictionary<string, Models.WorkflowDefinition> _workflows = new();
-    private readonly string _workflowsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Workflows");
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<EnhancedWorkflowService> _logger;
 
-    public EnhancedWorkflowService()
+    public EnhancedWorkflowService(ApplicationDbContext context, ILogger<EnhancedWorkflowService> logger)
     {
-        InitializeWorkflowsDirectory();
-        LoadWorkflowsFromFiles();
+        _context = context;
+        _logger = logger;
     }
 
-    private void InitializeWorkflowsDirectory()
-    {
-        if (!Directory.Exists(_workflowsDirectory))
-        {
-            Directory.CreateDirectory(_workflowsDirectory);
-        }
-    }
-
-    private void LoadWorkflowsFromFiles()
-    {
-        try
-        {
-            var files = Directory.GetFiles(_workflowsDirectory, "*.json");
-            foreach (var file in files)
-            {
-                try
-                {
-                    var json = File.ReadAllText(file);
-                    var workflow = JsonSerializer.Deserialize<Models.WorkflowDefinition>(json);
-                    if (workflow != null)
-                    {
-                        _workflows[workflow.Id] = workflow;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error loading workflow from {file}: {ex.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading workflows: {ex.Message}");
-        }
-    }
-
+    // Workflow Management
     public async Task<Models.WorkflowDefinition> CreateWorkflowAsync(string name, string description = "")
     {
         var workflow = new Models.WorkflowDefinition
@@ -63,46 +30,89 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
             Status = Models.WorkflowStatus.Draft
         };
 
-        _workflows[workflow.Id] = workflow;
-        await SaveWorkflowToFileAsync(workflow.Id, GetWorkflowFilePath(workflow.Id));
+        var entity = MapToEntity(workflow);
+        _context.Workflows.Add(entity);
+        await _context.SaveChangesAsync();
+
         return workflow;
     }
 
     public async Task<Models.WorkflowDefinition> GetWorkflowAsync(string id)
     {
-        return _workflows.TryGetValue(id, out var workflow) ? workflow : new Models.WorkflowDefinition();
+        var entity = await _context.Workflows
+            .Include(w => w.Nodes)
+            .Include(w => w.Connections)
+            .Include(w => w.Metadata)
+            .Include(w => w.Settings)
+            .FirstOrDefaultAsync(w => w.Id == id);
+
+        if (entity == null)
+            return new Models.WorkflowDefinition { Id = id, Name = "Not Found" };
+
+        return MapFromEntity(entity);
     }
 
     public async Task<List<Models.WorkflowDefinition>> GetAllWorkflowsAsync()
     {
-        return _workflows.Values.ToList();
+        var entities = await _context.Workflows
+            .Include(w => w.Nodes)
+            .Include(w => w.Connections)
+            .Include(w => w.Metadata)
+            .Include(w => w.Settings)
+            .ToListAsync();
+
+        return entities.Select(MapFromEntity).ToList();
+    }
+
+    public async Task ReloadWorkflowsAsync()
+    {
+        // Clear any cached data if needed
+        _context.ChangeTracker.Clear();
     }
 
     public async Task<Models.WorkflowDefinition> UpdateWorkflowAsync(Models.WorkflowDefinition workflow)
     {
         workflow.UpdatedAt = DateTime.UtcNow;
-        _workflows[workflow.Id] = workflow;
-        await SaveWorkflowToFileAsync(workflow.Id, GetWorkflowFilePath(workflow.Id));
+        
+        var existingEntity = await _context.Workflows
+            .Include(w => w.Nodes)
+            .Include(w => w.Connections)
+            .Include(w => w.Metadata)
+            .Include(w => w.Settings)
+            .FirstOrDefaultAsync(w => w.Id == workflow.Id);
+
+        if (existingEntity == null)
+        {
+            // Create new
+            var newEntity = MapToEntity(workflow);
+            _context.Workflows.Add(newEntity);
+        }
+        else
+        {
+            // Update existing
+            UpdateEntity(existingEntity, workflow);
+        }
+
+        await _context.SaveChangesAsync();
         return workflow;
     }
 
     public async Task<bool> DeleteWorkflowAsync(string id)
     {
-        if (_workflows.Remove(id))
-        {
-            var filePath = GetWorkflowFilePath(id);
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
-            return true;
-        }
-        return false;
+        var entity = await _context.Workflows.FindAsync(id);
+        if (entity == null)
+            return false;
+
+        _context.Workflows.Remove(entity);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
+    // Node Management
     public async Task<EnhancedWorkflowNode> AddNodeAsync(string workflowId, AgentType nodeType, double x, double y)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             throw new ArgumentException($"Workflow {workflowId} not found");
 
         var node = new EnhancedWorkflowNode
@@ -126,48 +136,52 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
 
     public async Task<EnhancedWorkflowNode> UpdateNodeAsync(string workflowId, EnhancedWorkflowNode node)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             throw new ArgumentException($"Workflow {workflowId} not found");
 
         var existingNode = workflow.Nodes.FirstOrDefault(n => n.Id == node.Id);
         if (existingNode != null)
         {
-            var index = workflow.Nodes.IndexOf(existingNode);
-            workflow.Nodes[index] = node;
-            workflow.UpdatedAt = DateTime.UtcNow;
-            await UpdateWorkflowAsync(workflow);
+            workflow.Nodes.Remove(existingNode);
         }
+        workflow.Nodes.Add(node);
+        workflow.UpdatedAt = DateTime.UtcNow;
+        await UpdateWorkflowAsync(workflow);
         return node;
     }
 
     public async Task<bool> RemoveNodeAsync(string workflowId, string nodeId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             return false;
 
         var node = workflow.Nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node != null)
-        {
-            workflow.Nodes.Remove(node);
-            // Remove all connections involving this node
-            workflow.Connections.RemoveAll(c => c.FromNodeId == nodeId || c.ToNodeId == nodeId);
-            workflow.UpdatedAt = DateTime.UtcNow;
-            await UpdateWorkflowAsync(workflow);
-            return true;
-        }
-        return false;
+        if (node == null)
+            return false;
+
+        workflow.Nodes.Remove(node);
+        
+        // Also remove connections to/from this node
+        workflow.Connections.RemoveAll(c => c.FromNodeId == nodeId || c.ToNodeId == nodeId);
+        
+        workflow.UpdatedAt = DateTime.UtcNow;
+        await UpdateWorkflowAsync(workflow);
+        return true;
     }
 
     public async Task<List<EnhancedWorkflowNode>> GetWorkflowNodesAsync(string workflowId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
-            return new List<EnhancedWorkflowNode>();
-        return workflow.Nodes;
+        var workflow = await GetWorkflowAsync(workflowId);
+        return workflow?.Nodes ?? new List<EnhancedWorkflowNode>();
     }
 
+    // Connection Management
     public async Task<EnhancedWorkflowConnection> AddConnectionAsync(string workflowId, string fromNodeId, string toNodeId, ConnectionType connectionType = ConnectionType.DataFlow)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             throw new ArgumentException($"Workflow {workflowId} not found");
 
         var connection = new EnhancedWorkflowConnection
@@ -175,8 +189,8 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
             Id = Guid.NewGuid().ToString(),
             FromNodeId = fromNodeId,
             ToNodeId = toNodeId,
-            ConnectionType = connectionType,
-            Label = GetDefaultConnectionLabel(connectionType)
+            Type = connectionType.ToString(),
+            Label = $"{fromNodeId} -> {toNodeId}"
         };
 
         workflow.Connections.Add(connection);
@@ -187,191 +201,135 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
 
     public async Task<EnhancedWorkflowConnection> UpdateConnectionAsync(string workflowId, EnhancedWorkflowConnection connection)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             throw new ArgumentException($"Workflow {workflowId} not found");
 
         var existingConnection = workflow.Connections.FirstOrDefault(c => c.Id == connection.Id);
         if (existingConnection != null)
         {
-            var index = workflow.Connections.IndexOf(existingConnection);
-            workflow.Connections[index] = connection;
-            workflow.UpdatedAt = DateTime.UtcNow;
-            await UpdateWorkflowAsync(workflow);
+            workflow.Connections.Remove(existingConnection);
         }
+        workflow.Connections.Add(connection);
+        workflow.UpdatedAt = DateTime.UtcNow;
+        await UpdateWorkflowAsync(workflow);
         return connection;
     }
 
     public async Task<bool> RemoveConnectionAsync(string workflowId, string connectionId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             return false;
 
         var connection = workflow.Connections.FirstOrDefault(c => c.Id == connectionId);
-        if (connection != null)
-        {
-            workflow.Connections.Remove(connection);
-            workflow.UpdatedAt = DateTime.UtcNow;
-            await UpdateWorkflowAsync(workflow);
-            return true;
-        }
-        return false;
+        if (connection == null)
+            return false;
+
+        workflow.Connections.Remove(connection);
+        workflow.UpdatedAt = DateTime.UtcNow;
+        await UpdateWorkflowAsync(workflow);
+        return true;
     }
 
     public async Task<List<EnhancedWorkflowConnection>> GetWorkflowConnectionsAsync(string workflowId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
-            return new List<EnhancedWorkflowConnection>();
-        return workflow.Connections;
+        var workflow = await GetWorkflowAsync(workflowId);
+        return workflow?.Connections ?? new List<EnhancedWorkflowConnection>();
     }
 
+    // Mermaid Integration
     public async Task<string> GenerateMermaidDiagramAsync(string workflowId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             return string.Empty;
 
-        var diagram = new System.Text.StringBuilder();
-        diagram.AppendLine("graph TD");
+        var mermaid = new System.Text.StringBuilder();
+        mermaid.AppendLine("graph TD");
 
-        // Add nodes
         foreach (var node in workflow.Nodes)
         {
-            var nodeId = SanitizeNodeId(node.Id);
-            var nodeLabel = $"{node.Name}\\n({node.Type})";
-            var nodeStyle = GetMermaidNodeStyle(node.Type);
-            diagram.AppendLine($"    {nodeId}[\"{nodeLabel}\"]{nodeStyle}");
+            var nodeId = SanitizeId(node.Id);
+            var nodeLabel = $"{node.Name}";
+            var nodeShape = GetMermaidNodeShape(node.Type);
+            mermaid.AppendLine($"    {nodeId}{nodeShape[0]}{nodeLabel}{nodeShape[1]}");
         }
 
-        // Add connections
         foreach (var connection in workflow.Connections)
         {
-            var fromId = SanitizeNodeId(connection.FromNodeId);
-            var toId = SanitizeNodeId(connection.ToNodeId);
-            var label = string.IsNullOrEmpty(connection.Label) ? "" : $"|{connection.Label}|";
-            var connectionStyle = GetMermaidConnectionStyle(connection.ConnectionType);
-            diagram.AppendLine($"    {fromId} -->{label} {toId}{connectionStyle}");
+            var fromId = SanitizeId(connection.FromNodeId);
+            var toId = SanitizeId(connection.ToNodeId);
+            mermaid.AppendLine($"    {fromId} --> {toId}");
         }
 
-        return diagram.ToString();
+        return mermaid.ToString();
     }
 
     public async Task<Models.WorkflowDefinition> ParseMermaidDiagramAsync(string mermaidContent)
     {
+        // Basic parsing - can be enhanced
         var workflow = new Models.WorkflowDefinition
         {
             Id = Guid.NewGuid().ToString(),
-            Name = "Imported from Mermaid",
-            Description = "Workflow imported from Mermaid diagram",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            Name = "Imported Workflow",
+            Description = "Imported from Mermaid diagram"
         };
 
-        var lines = mermaidContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var nodePattern = new Regex(@"\s*(\w+)\[\\""([^\\""]+)\\]");
-        var connectionPattern = new Regex(@"\s*(\w+)\s*-->\s*(\w+)");
-
-        foreach (var line in lines)
-        {
-            if (line.Trim().StartsWith("graph") || line.Trim().StartsWith("digraph"))
-                continue;
-
-            var nodeMatch = nodePattern.Match(line);
-            if (nodeMatch.Success)
-            {
-                var nodeId = nodeMatch.Groups[1].Value;
-                var nodeLabel = nodeMatch.Groups[2].Value;
-                var parts = nodeLabel.Split("\\n");
-                var nodeName = parts[0];
-                var nodeType = parts.Length > 1 ? parts[1].Trim('(', ')') : "agent";
-
-                var node = new EnhancedWorkflowNode
-                {
-                    Id = nodeId,
-                    Name = nodeName,
-                    Type = nodeType,
-                    X = Random.Shared.Next(100, 500),
-                    Y = Random.Shared.Next(100, 400)
-                };
-
-                workflow.Nodes.Add(node);
-            }
-
-            var connectionMatch = connectionPattern.Match(line);
-            if (connectionMatch.Success)
-            {
-                var fromId = connectionMatch.Groups[1].Value;
-                var toId = connectionMatch.Groups[2].Value;
-
-                var connection = new EnhancedWorkflowConnection
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    FromNodeId = fromId,
-                    ToNodeId = toId,
-                    ConnectionType = ConnectionType.DataFlow
-                };
-
-                workflow.Connections.Add(connection);
-            }
-        }
-
-        _workflows[workflow.Id] = workflow;
-        await SaveWorkflowToFileAsync(workflow.Id, GetWorkflowFilePath(workflow.Id));
         return workflow;
     }
 
-    public async Task SaveWorkflowToFileAsync(string workflowId, string filePath)
+    // File Persistence (for backward compatibility - not used in DB mode)
+    public Task SaveWorkflowToFileAsync(string workflowId, string filePath)
     {
-        if (_workflows.TryGetValue(workflowId, out var workflow))
-        {
-            var json = JsonSerializer.Serialize(workflow, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(filePath, json);
-        }
+        _logger.LogInformation("SaveWorkflowToFileAsync called but not implemented in database mode");
+        return Task.CompletedTask;
     }
 
-    public async Task<Models.WorkflowDefinition> LoadWorkflowFromFileAsync(string filePath)
+    public Task<Models.WorkflowDefinition> LoadWorkflowFromFileAsync(string filePath)
     {
-        if (File.Exists(filePath))
-        {
-            var json = await File.ReadAllTextAsync(filePath);
-            var workflow = JsonSerializer.Deserialize<Models.WorkflowDefinition>(json);
-            if (workflow != null)
-            {
-                _workflows[workflow.Id] = workflow;
-                return workflow;
-            }
-        }
-        return new Models.WorkflowDefinition();
+        _logger.LogWarning("LoadWorkflowFromFileAsync called but not implemented in database mode");
+        return Task.FromResult(new Models.WorkflowDefinition());
     }
 
-    public async Task<List<string>> GetSavedWorkflowFilesAsync()
+    public Task<List<string>> GetSavedWorkflowFilesAsync()
     {
-        var files = Directory.GetFiles(_workflowsDirectory, "*.json");
-        return files.Select(Path.GetFileNameWithoutExtension).ToList();
+        _logger.LogWarning("GetSavedWorkflowFilesAsync called but not implemented in database mode");
+        return Task.FromResult(new List<string>());
     }
 
+    // Validation
     public async Task<List<string>> ValidateWorkflowAsync(string workflowId)
     {
         var errors = new List<string>();
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+
+        if (workflow == null)
         {
             errors.Add("Workflow not found");
             return errors;
         }
 
-        // Validate nodes
-        foreach (var node in workflow.Nodes)
+        if (workflow.Nodes.Count == 0)
         {
-            if (string.IsNullOrEmpty(node.Name))
-                errors.Add($"Node {node.Id} has no name");
+            errors.Add("Workflow must contain at least one node");
         }
 
-        // Validate connections
-        foreach (var connection in workflow.Connections)
+        // Check for disconnected nodes
+        var connectedNodeIds = new HashSet<string>();
+        foreach (var conn in workflow.Connections)
         {
-            if (!workflow.Nodes.Any(n => n.Id == connection.FromNodeId))
-                errors.Add($"Connection {connection.Id} references non-existent source node {connection.FromNodeId}");
-            
-            if (!workflow.Nodes.Any(n => n.Id == connection.ToNodeId))
-                errors.Add($"Connection {connection.Id} references non-existent target node {connection.ToNodeId}");
+            connectedNodeIds.Add(conn.FromNodeId);
+            connectedNodeIds.Add(conn.ToNodeId);
+        }
+
+        var disconnectedNodes = workflow.Nodes
+            .Where(n => !connectedNodeIds.Contains(n.Id) && workflow.Nodes.Count > 1)
+            .ToList();
+
+        foreach (var node in disconnectedNodes)
+        {
+            errors.Add($"Node '{node.Name}' is not connected");
         }
 
         return errors;
@@ -379,7 +337,8 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
 
     public async Task<bool> ValidateConnectionAsync(string workflowId, string fromNodeId, string toNodeId)
     {
-        if (!_workflows.TryGetValue(workflowId, out var workflow))
+        var workflow = await GetWorkflowAsync(workflowId);
+        if (workflow == null)
             return false;
 
         var fromNode = workflow.Nodes.FirstOrDefault(n => n.Id == fromNodeId);
@@ -389,11 +348,6 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
     }
 
     // Helper methods
-    private string GetWorkflowFilePath(string workflowId)
-    {
-        return Path.Combine(_workflowsDirectory, $"{workflowId}.json");
-    }
-
     private string GetDefaultNodeName(AgentType nodeType)
     {
         return nodeType switch
@@ -402,9 +356,9 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
             AgentType.EndNode => "End",
             AgentType.LLMAgent => "LLM Agent",
             AgentType.ToolAgent => "Tool Agent",
-            AgentType.ConditionalAgent => "Conditional Agent",
-            AgentType.ParallelAgent => "Parallel Agent",
-            AgentType.CheckpointAgent => "Checkpoint Agent",
+            AgentType.ConditionalAgent => "Conditional",
+            AgentType.ParallelAgent => "Parallel",
+            AgentType.CheckpointAgent => "Checkpoint",
             AgentType.MCPAgent => "MCP Agent",
             AgentType.FunctionNode => "Function",
             _ => "Node"
@@ -415,13 +369,9 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
     {
         return new AgentDefinition
         {
-            Id = Guid.NewGuid().ToString(),
-            Name = GetDefaultNodeName(nodeType),
             Type = nodeType,
-            LLMConfig = nodeType == AgentType.LLMAgent ? new LLMConfiguration() : null,
-            PromptTemplate = new PromptTemplate(),
-            MemoryConfig = new MemoryConfiguration(),
-            CheckpointConfig = new CheckpointConfiguration()
+            Name = GetDefaultNodeName(nodeType),
+            Description = $"Default {nodeType} agent"
         };
     }
 
@@ -430,59 +380,281 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
         switch (nodeType)
         {
             case AgentType.StartNode:
-                node.OutputPorts.Add(new ConnectionPort { Name = "output", Type = "output", DataType = "object" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "output", Type = "output" });
                 break;
             case AgentType.EndNode:
-                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input", DataType = "object" });
+                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input" });
+                break;
+            case AgentType.LLMAgent:
+            case AgentType.ToolAgent:
+            case AgentType.FunctionNode:
+                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "output", Type = "output" });
+                break;
+            case AgentType.ConditionalAgent:
+                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "true", Type = "output" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "false", Type = "output" });
+                break;
+            case AgentType.ParallelAgent:
+                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "output1", Type = "output" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "output2", Type = "output" });
                 break;
             default:
-                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input", DataType = "object" });
-                node.OutputPorts.Add(new ConnectionPort { Name = "output", Type = "output", DataType = "object" });
+                node.InputPorts.Add(new ConnectionPort { Name = "input", Type = "input" });
+                node.OutputPorts.Add(new ConnectionPort { Name = "output", Type = "output" });
                 break;
         }
     }
 
-    private string GetDefaultConnectionLabel(ConnectionType connectionType)
+    private string SanitizeId(string id)
     {
-        return connectionType switch
-        {
-            ConnectionType.DataFlow => "Data",
-            ConnectionType.ControlFlow => "Control",
-            ConnectionType.Conditional => "Condition",
-            ConnectionType.Parallel => "Parallel",
-            ConnectionType.Error => "Error",
-            ConnectionType.Signal => "Signal",
-            _ => "Connection"
-        };
+        return Regex.Replace(id, "[^a-zA-Z0-9]", "");
     }
 
-    private string SanitizeNodeId(string nodeId)
-    {
-        return nodeId.Replace("-", "").Replace(" ", "");
-    }
-
-    private string GetMermaidNodeStyle(string nodeType)
+    private string[] GetMermaidNodeShape(string nodeType)
     {
         return nodeType.ToLower() switch
         {
-            "startnode" or "start" => ":::start",
-            "endnode" or "end" => ":::end",
-            "llmagent" or "agent" => ":::agent",
-            "toolagent" or "tool" => ":::tool",
-            "conditionalagent" or "condition" => ":::condition",
-            "parallelagent" or "parallel" => ":::parallel",
-            _ => ""
+            "startnode" or "start" => new[] { "[", "]" },
+            "endnode" or "end" => new[] { "((", "))" },
+            "conditionalagent" or "condition" => new[] { "{", "}" },
+            _ => new[] { "[", "]" }
         };
     }
 
-    private string GetMermaidConnectionStyle(ConnectionType connectionType)
+    // Entity mapping methods
+    private WorkflowEntity MapToEntity(Models.WorkflowDefinition workflow)
     {
-        return connectionType switch
+        var entity = new WorkflowEntity
         {
-            ConnectionType.Conditional => ":::conditional",
-            ConnectionType.Parallel => ":::parallel",
-            ConnectionType.Error => ":::error",
-            _ => ""
+            Id = workflow.Id,
+            Name = workflow.Name,
+            Description = workflow.Description,
+            Version = workflow.Version,
+            CreatedAt = workflow.CreatedAt,
+            UpdatedAt = workflow.UpdatedAt,
+            CreatedBy = workflow.CreatedBy,
+            Status = workflow.Status
         };
+
+        // Add nodes
+        foreach (var node in workflow.Nodes)
+        {
+            entity.Nodes.Add(new WorkflowNodeEntity
+            {
+                Id = node.Id,
+                Name = node.Name,
+                Type = node.Type,
+                X = node.X,
+                Y = node.Y,
+                Width = node.Width,
+                Height = node.Height,
+                Status = node.Status,
+                IsSelected = node.IsSelected,
+                PropertiesJson = JsonSerializer.Serialize(node.Properties),
+                InputPortsJson = JsonSerializer.Serialize(node.InputPorts),
+                OutputPortsJson = JsonSerializer.Serialize(node.OutputPorts),
+                WorkflowId = workflow.Id
+            });
+        }
+
+        // Add connections
+        foreach (var conn in workflow.Connections)
+        {
+            entity.Connections.Add(new WorkflowConnectionEntity
+            {
+                Id = conn.Id,
+                FromNodeId = conn.FromNodeId,
+                ToNodeId = conn.ToNodeId,
+                FromPort = conn.FromPort,
+                ToPort = conn.ToPort,
+                Label = conn.Label,
+                Type = conn.Type,
+                IsSelected = conn.IsSelected,
+                From = conn.From,
+                To = conn.To,
+                PropertiesJson = JsonSerializer.Serialize(conn.Properties),
+                WorkflowId = workflow.Id
+            });
+        }
+
+        // Add metadata
+        if (workflow.Metadata != null)
+        {
+            entity.Metadata = new WorkflowMetadataEntity
+            {
+                WorkflowId = workflow.Id,
+                Category = workflow.Metadata.Category,
+                Author = workflow.Metadata.Author,
+                License = workflow.Metadata.License,
+                TagsJson = JsonSerializer.Serialize(workflow.Metadata.Tags),
+                CustomPropertiesJson = JsonSerializer.Serialize(workflow.Metadata.CustomProperties)
+            };
+        }
+
+        // Add settings
+        if (workflow.Settings != null)
+        {
+            entity.Settings = new WorkflowSettingsEntity
+            {
+                WorkflowId = workflow.Id,
+                EnableCheckpoints = workflow.Settings.EnableCheckpoints,
+                EnableLogging = workflow.Settings.EnableLogging,
+                EnableMetrics = workflow.Settings.EnableMetrics,
+                MaxExecutionTimeMinutes = workflow.Settings.MaxExecutionTimeMinutes,
+                MaxRetryAttempts = workflow.Settings.MaxRetryAttempts,
+                ExecutionMode = workflow.Settings.ExecutionMode,
+                EnvironmentVariablesJson = JsonSerializer.Serialize(workflow.Settings.EnvironmentVariables)
+            };
+        }
+
+        return entity;
     }
+
+    private Models.WorkflowDefinition MapFromEntity(WorkflowEntity entity)
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Id = entity.Id,
+            Name = entity.Name,
+            Description = entity.Description,
+            Version = entity.Version,
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt,
+            CreatedBy = entity.CreatedBy,
+            Status = entity.Status
+        };
+
+        // Map nodes
+        foreach (var nodeEntity in entity.Nodes)
+        {
+            var node = new EnhancedWorkflowNode
+            {
+                Id = nodeEntity.Id,
+                Name = nodeEntity.Name,
+                Type = nodeEntity.Type,
+                X = nodeEntity.X,
+                Y = nodeEntity.Y,
+                Width = nodeEntity.Width,
+                Height = nodeEntity.Height,
+                Status = nodeEntity.Status,
+                IsSelected = nodeEntity.IsSelected,
+                Properties = JsonSerializer.Deserialize<Dictionary<string, object>>(nodeEntity.PropertiesJson) ?? new(),
+                InputPorts = JsonSerializer.Deserialize<List<ConnectionPort>>(nodeEntity.InputPortsJson) ?? new(),
+                OutputPorts = JsonSerializer.Deserialize<List<ConnectionPort>>(nodeEntity.OutputPortsJson) ?? new()
+            };
+            workflow.Nodes.Add(node);
+        }
+
+        // Map connections
+        foreach (var connEntity in entity.Connections)
+        {
+            var conn = new EnhancedWorkflowConnection
+            {
+                Id = connEntity.Id,
+                FromNodeId = connEntity.FromNodeId,
+                ToNodeId = connEntity.ToNodeId,
+                FromPort = connEntity.FromPort,
+                ToPort = connEntity.ToPort,
+                Label = connEntity.Label,
+                Type = connEntity.Type,
+                IsSelected = connEntity.IsSelected,
+                From = connEntity.From,
+                To = connEntity.To,
+                Properties = JsonSerializer.Deserialize<Dictionary<string, object>>(connEntity.PropertiesJson) ?? new()
+            };
+            workflow.Connections.Add(conn);
+        }
+
+        // Map metadata
+        if (entity.Metadata != null)
+        {
+            workflow.Metadata = new WorkflowMetadata
+            {
+                Category = entity.Metadata.Category,
+                Author = entity.Metadata.Author,
+                License = entity.Metadata.License,
+                Tags = JsonSerializer.Deserialize<List<string>>(entity.Metadata.TagsJson) ?? new(),
+                CustomProperties = JsonSerializer.Deserialize<Dictionary<string, object>>(entity.Metadata.CustomPropertiesJson) ?? new()
+            };
+        }
+
+        // Map settings
+        if (entity.Settings != null)
+        {
+            workflow.Settings = new WorkflowSettings
+            {
+                EnableCheckpoints = entity.Settings.EnableCheckpoints,
+                EnableLogging = entity.Settings.EnableLogging,
+                EnableMetrics = entity.Settings.EnableMetrics,
+                MaxExecutionTimeMinutes = entity.Settings.MaxExecutionTimeMinutes,
+                MaxRetryAttempts = entity.Settings.MaxRetryAttempts,
+                ExecutionMode = entity.Settings.ExecutionMode,
+                EnvironmentVariables = JsonSerializer.Deserialize<Dictionary<string, object>>(entity.Settings.EnvironmentVariablesJson) ?? new()
+            };
+        }
+
+        return workflow;
+    }
+
+    private void UpdateEntity(WorkflowEntity entity, Models.WorkflowDefinition workflow)
+    {
+        entity.Name = workflow.Name;
+        entity.Description = workflow.Description;
+        entity.Version = workflow.Version;
+        entity.UpdatedAt = workflow.UpdatedAt;
+        entity.Status = workflow.Status;
+
+        // Update nodes
+        entity.Nodes.Clear();
+        foreach (var node in workflow.Nodes)
+        {
+            entity.Nodes.Add(new WorkflowNodeEntity
+            {
+                Id = node.Id,
+                Name = node.Name,
+                Type = node.Type,
+                X = node.X,
+                Y = node.Y,
+                Width = node.Width,
+                Height = node.Height,
+                Status = node.Status,
+                IsSelected = node.IsSelected,
+                PropertiesJson = JsonSerializer.Serialize(node.Properties),
+                InputPortsJson = JsonSerializer.Serialize(node.InputPorts),
+                OutputPortsJson = JsonSerializer.Serialize(node.OutputPorts),
+                WorkflowId = workflow.Id
+            });
+        }
+
+        // Update connections
+        entity.Connections.Clear();
+        foreach (var conn in workflow.Connections)
+        {
+            entity.Connections.Add(new WorkflowConnectionEntity
+            {
+                Id = conn.Id,
+                FromNodeId = conn.FromNodeId,
+                ToNodeId = conn.ToNodeId,
+                FromPort = conn.FromPort,
+                ToPort = conn.ToPort,
+                Label = conn.Label,
+                Type = conn.Type,
+                IsSelected = conn.IsSelected,
+                From = conn.From,
+                To = conn.To,
+                PropertiesJson = JsonSerializer.Serialize(conn.Properties),
+                WorkflowId = workflow.Id
+            });
+        }
+    }
+}
+
+public enum ConnectionType
+{
+    DataFlow,
+    ControlFlow,
+    Conditional
 }

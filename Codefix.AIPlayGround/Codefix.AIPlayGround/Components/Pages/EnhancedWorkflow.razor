@@ -20,13 +20,7 @@
     </div>
 
     <div class="workflow-container">
-        <div class="sidebar">
-            <EnhancedNodePalette OnNodeSelected="OnNodeSelected" />
-        </div>
-        
-        <div class="main-content">
-            <EnhancedWorkflowCanvas WorkflowId="@currentWorkflowId" OnWorkflowChanged="OnWorkflowChanged" />
-        </div>
+        <ModernWorkflowCanvas @ref="canvasRef" WorkflowId="@currentWorkflowId" OnWorkflowChanged="OnWorkflowChanged" />
     </div>
     
     <!-- Workflow List Modal -->
@@ -208,6 +202,7 @@
     private string currentWorkflowId = string.Empty;
     private bool showWorkflowList = false;
     private List<Models.WorkflowDefinition> availableWorkflows = new();
+    private ModernWorkflowCanvas? canvasRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,7 +217,7 @@
 
     private async Task OnNodeSelected(AgentType nodeType)
     {
-        // This will be handled by the canvas component
+        // This functionality can be extended in the future
         await Task.CompletedTask;
     }
 

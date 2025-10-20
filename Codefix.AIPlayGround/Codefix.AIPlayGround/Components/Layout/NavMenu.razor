@@ -12,47 +12,40 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
+        <!-- Main Navigation -->
+        <div class="nav-section">
+            <div class="nav-section-header">
+                <span class="nav-section-title">Main</span>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
+                </NavLink>
+            </div>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
+        <!-- Workflow Management -->
+        <div class="nav-section">
+            <div class="nav-section-header">
+                <span class="nav-section-title">Workflows</span>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="enhanced-workflow">
+                    <span class="bi bi-diagram-3" aria-hidden="true"></span> Workflow Builder
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="workflow-overview">
+                    <span class="bi bi-list-check" aria-hidden="true"></span> Workflow Overview
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="devui">
+                    <span class="bi bi-grid-3x3-gap" aria-hidden="true"></span> Agent DevUI
+                </NavLink>
+            </div>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="">
-                <span class="bi bi-diagram-3" aria-hidden="true"></span> Agent Framework
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="agent-devui">
-                <span class="bi bi-tools" aria-hidden="true"></span> Agent DevUI
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="enhanced-workflow">
-                <span class="bi bi-diagram-3" aria-hidden="true"></span> Enhanced Workflow
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink>
-        </div>
 
         <AuthorizeView>
             <Authorized>
@@ -86,6 +79,58 @@
         </AuthorizeView>
     </nav>
 </div>
+
+<style>
+    .nav-section {
+        margin-bottom: 1rem;
+    }
+
+    .nav-section-header {
+        padding: 0.5rem 1rem;
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-section-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        border-radius: 0.375rem;
+        margin: 0.125rem 0;
+        transition: all 0.2s ease;
+    }
+
+    .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .nav-link.active {
+        background-color: rgba(13, 110, 253, 0.2);
+        color: white;
+        border-left: 3px solid #0d6efd;
+    }
+
+    .nav-link span {
+        margin-right: 0.75rem;
+        font-size: 1.1rem;
+    }
+
+    .nav-scrollable {
+        background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+        padding: 1rem 0;
+    }
+</style>
 
 @code {
     private string? currentUrl;

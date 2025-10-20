@@ -1,0 +1,176 @@
+{
+  "Id": "fbc3bfd6-7697-452f-a639-ab46e0e86604",
+  "Name": "Order Processing System",
+  "Description": "Complete order fulfillment workflow from payment to delivery tracking",
+  "Version": "3.2.1",
+  "Nodes": [
+    {
+      "Id": "payment-trigger",
+      "Name": "Payment Received",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "payment.success",
+        "gateway": "stripe"
+      },
+      "InputPorts": [],
+      "OutputPorts": ["success", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "inventory-check",
+      "Name": "Inventory Check",
+      "Type": "process",
+      "X": 300,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "checkStock": true,
+        "reserveItems": true,
+        "timeout": 10
+      },
+      "InputPorts": ["order"],
+      "OutputPorts": ["available", "out-of-stock", "partial"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "fulfillment-center",
+      "Name": "Fulfillment Center",
+      "Type": "action",
+      "X": 550,
+      "Y": 50,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "center": "warehouse-east",
+        "priority": "standard"
+      },
+      "InputPorts": ["order"],
+      "OutputPorts": ["picked", "packed", "shipped"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "shipping-service",
+      "Name": "Shipping Service",
+      "Type": "action",
+      "X": 550,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "carrier": "fedex",
+        "service": "ground"
+      },
+      "InputPorts": ["package"],
+      "OutputPorts": ["tracking", "delivered"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "notification-service",
+      "Name": "Customer Notifications",
+      "Type": "action",
+      "X": 800,
+      "Y": 100,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "channels": ["email", "sms"],
+        "templates": ["order-confirmation", "shipping-update"]
+      },
+      "InputPorts": ["event"],
+      "OutputPorts": ["sent", "failed"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "payment-trigger",
+      "ToNodeId": "inventory-check",
+      "FromPort": "success",
+      "ToPort": "order",
+      "Label": "Order Data",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "payment-trigger",
+      "To": "inventory-check"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "inventory-check",
+      "ToNodeId": "fulfillment-center",
+      "FromPort": "available",
+      "ToPort": "order",
+      "Label": "Available Items",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "inventory-check",
+      "To": "fulfillment-center"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "fulfillment-center",
+      "ToNodeId": "shipping-service",
+      "FromPort": "shipped",
+      "ToPort": "package",
+      "Label": "Package Info",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "fulfillment-center",
+      "To": "shipping-service"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "shipping-service",
+      "ToNodeId": "notification-service",
+      "FromPort": "tracking",
+      "ToPort": "event",
+      "Label": "Tracking Update",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "shipping-service",
+      "To": "notification-service"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["ecommerce", "fulfillment", "shipping", "automation"],
+    "Category": "Order Management",
+    "Author": "E-commerce Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "critical",
+      "department": "operations",
+      "sla": "24h"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 120,
+    "MaxRetryAttempts": 5,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "INVENTORY_API": "https://api.inventory.com",
+      "SHIPPING_API": "https://api.shipping.com",
+      "NOTIFICATION_SERVICE": "https://api.notifications.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:19:23.4475388Z",
+  "UpdatedAt": "2025-10-13T20:19:23.4475388Z",
+  "CreatedBy": "ecommerce@company.com",
+  "Status": 1
+}

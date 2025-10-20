@@ -1,0 +1,193 @@
+{
+  "Id": "08b76df2-37d3-44ec-b3d5-b37bad96e97c",
+  "Name": "Supply Chain Optimization",
+  "Description": "Intelligent supply chain management with predictive analytics and automated optimization",
+  "Version": "2.4.1",
+  "Nodes": [
+    {
+      "Id": "demand-forecaster",
+      "Name": "Demand Forecasting",
+      "Type": "trigger",
+      "X": 50,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "eventType": "supply.demand.forecast",
+        "model": "lstm-forecasting",
+        "horizon": 90
+      },
+      "InputPorts": [],
+      "OutputPorts": ["forecast", "confidence"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "inventory-optimizer",
+      "Name": "Inventory Optimization",
+      "Type": "process",
+      "X": 250,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "algorithm": "genetic-optimization",
+        "constraints": ["storage", "budget", "lead-time"],
+        "safetyStock": 0.2
+      },
+      "InputPorts": ["demand"],
+      "OutputPorts": ["optimized", "reorder-points"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "supplier-selector",
+      "Name": "Supplier Selection",
+      "Type": "process",
+      "X": 450,
+      "Y": 150,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "criteria": ["cost", "quality", "reliability", "sustainability"],
+        "weights": [0.3, 0.25, 0.25, 0.2],
+        "multiObjective": true
+      },
+      "InputPorts": ["requirements"],
+      "OutputPorts": ["selected", "alternatives"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "logistics-planner",
+      "Name": "Logistics Planning",
+      "Type": "action",
+      "X": 450,
+      "Y": 250,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "routing": "dynamic",
+        "transportModes": ["truck", "rail", "air", "sea"],
+        "carbonFootprint": true
+      },
+      "InputPorts": ["orders"],
+      "OutputPorts": ["routes", "schedules"],
+      "IsSelected": false,
+      "Status": "idle"
+    },
+    {
+      "Id": "performance-monitor",
+      "Name": "Performance Monitor",
+      "Type": "action",
+      "X": 650,
+      "Y": 200,
+      "Width": 150,
+      "Height": 80,
+      "Properties": {
+        "kpis": ["fill-rate", "cost-per-unit", "delivery-time", "quality-score"],
+        "alerts": true,
+        "reporting": "real-time"
+      },
+      "InputPorts": ["metrics"],
+      "OutputPorts": ["dashboard", "alerts"],
+      "IsSelected": false,
+      "Status": "idle"
+    }
+  ],
+  "Connections": [
+    {
+      "Id": "conn-1",
+      "FromNodeId": "demand-forecaster",
+      "ToNodeId": "inventory-optimizer",
+      "FromPort": "forecast",
+      "ToPort": "demand",
+      "Label": "Demand Forecast",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "demand-forecaster",
+      "To": "inventory-optimizer"
+    },
+    {
+      "Id": "conn-2",
+      "FromNodeId": "inventory-optimizer",
+      "ToNodeId": "supplier-selector",
+      "FromPort": "reorder-points",
+      "ToPort": "requirements",
+      "Label": "Order Requirements",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "inventory-optimizer",
+      "To": "supplier-selector"
+    },
+    {
+      "Id": "conn-3",
+      "FromNodeId": "inventory-optimizer",
+      "ToNodeId": "logistics-planner",
+      "FromPort": "optimized",
+      "ToPort": "orders",
+      "Label": "Optimized Orders",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "inventory-optimizer",
+      "To": "logistics-planner"
+    },
+    {
+      "Id": "conn-4",
+      "FromNodeId": "supplier-selector",
+      "ToNodeId": "performance-monitor",
+      "FromPort": "selected",
+      "ToPort": "metrics",
+      "Label": "Supplier Metrics",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "supplier-selector",
+      "To": "performance-monitor"
+    },
+    {
+      "Id": "conn-5",
+      "FromNodeId": "logistics-planner",
+      "ToNodeId": "performance-monitor",
+      "FromPort": "routes",
+      "ToPort": "metrics",
+      "Label": "Logistics Metrics",
+      "Type": "default",
+      "Properties": {},
+      "IsSelected": false,
+      "From": "logistics-planner",
+      "To": "performance-monitor"
+    }
+  ],
+  "Metadata": {
+    "Tags": ["supply-chain", "optimization", "logistics", "ai", "forecasting"],
+    "Category": "Supply Chain Management",
+    "Author": "Operations Team",
+    "License": "Internal",
+    "CustomProperties": {
+      "priority": "high",
+      "department": "operations",
+      "cost_savings": "$2M"
+    }
+  },
+  "Settings": {
+    "EnableCheckpoints": true,
+    "EnableLogging": true,
+    "EnableMetrics": true,
+    "MaxExecutionTimeMinutes": 45,
+    "MaxRetryAttempts": 2,
+    "ExecutionMode": "parallel",
+    "EnvironmentVariables": {
+      "FORECASTING_API": "https://forecasting.company.com",
+      "SUPPLIER_DB": "https://suppliers.company.com",
+      "LOGISTICS_API": "https://logistics.company.com"
+    }
+  },
+  "CreatedAt": "2025-10-13T20:30:02.6931183Z",
+  "UpdatedAt": "2025-10-13T20:30:02.6931186Z",
+  "CreatedBy": "operations@company.com",
+  "Status": 1
+}
