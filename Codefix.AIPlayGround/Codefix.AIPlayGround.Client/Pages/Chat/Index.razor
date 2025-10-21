@@ -1,0 +1,957 @@
+@page "/chat"
+@page "/chat/{sessionId}"
+@using System.Net.Http.Json
+@using System.Security.Claims
+@using Codefix.AIPlayGround.Models.DTOs
+@rendermode InteractiveAuto
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@implements IAsyncDisposable
+
+<PageTitle>Chat - AI PlayGround</PageTitle>
+
+@if (!hasSelectedAgent)
+{
+    <!-- Agent Selection View -->
+    <div class="agent-selection-container">
+        <div class="agent-selection-card">
+            <h2 class="mb-4">
+                <i class="bi bi-robot me-2"></i>
+                Select an AI Agent to Chat With
+            </h2>
+
+            @if (isLoadingAgents)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading agents...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Loading available agents...</p>
+                </div>
+            }
+            else if (availableAgents.Any())
+            {
+                <div class="mb-4">
+                    <input type="search" class="form-control" placeholder="Search agents..." 
+                           @bind="agentSearch" @bind:event="oninput" />
+                </div>
+
+                <div class="agents-grid">
+                    @foreach (var agent in FilteredAgents)
+                    {
+                        <div class="agent-card @(selectedAgentId == agent.Id ? "selected" : "")" 
+                             @onclick="@(() => SelectAgent(agent.Id))">
+                            <div class="agent-card-header">
+                                <i class="bi bi-robot fs-3 text-primary"></i>
+                                <h5 class="mb-0">@agent.Name</h5>
+                            </div>
+                            <p class="agent-description text-muted">@agent.Description</p>
+                            <div class="agent-meta">
+                                <span class="badge bg-secondary">@agent.AgentType</span>
+                                <span class="badge bg-success">@agent.Status</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (selectedAgentId != null)
+                {
+                    <div class="d-flex justify-content-end mt-4">
+                        <button class="btn btn-primary btn-lg" @onclick="StartChatWithSelectedAgent" disabled="@isStartingChat">
+                            @if (isStartingChat)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            Start Chatting
+                            <i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    No agents available. Please create an agent first.
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <!-- Chat Interface -->
+    <div class="chat-container">
+        <!-- Conversations Sidebar -->
+        <div class="conversations-sidebar">
+            <div class="sidebar-header">
+                <h5>Conversations</h5>
+                <button class="btn btn-primary btn-sm" @onclick="StartNewConversation">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            </div>
+            
+            <div class="p-2">
+                <input type="search" class="form-control form-control-sm" placeholder="Search..." 
+                       @bind="conversationSearch" @bind:event="oninput" />
+            </div>
+
+            <div class="conversations-list">
+                @foreach (var conv in FilteredConversations)
+                {
+                    <div class="conversation-item @(conv.SessionId == currentSessionId ? "active" : "")"
+                         @onclick="@(() => SelectConversation(conv.SessionId))">
+                        <div class="d-flex justify-content-between">
+                            <strong>@(conv.Title ?? "New Conversation")</strong>
+                            @if (conv.IsActive)
+                            {
+                                <span class="badge bg-success rounded-pill">Active</span>
+                            }
+                        </div>
+                        <small class="text-muted">@conv.AgentName</small>
+                        <small class="text-muted d-block">@(conv.LastMessage ?? "No messages yet")</small>
+                        <small class="text-muted d-block">@conv.LastActivityAt.ToLocalTime().ToString("g")</small>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-link" @onclick="BackToAgentSelection">
+                        <i class="bi bi-arrow-left"></i>
+                    </button>
+                    <div class="avatar">
+                        <i class="bi bi-robot fs-4"></i>
+                    </div>
+                    <div>
+                        <strong>@currentAgentName</strong>
+                        <div class="small text-muted">@(isTyping ? "Typing..." : "Active")</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-link" @onclick="ClearCurrentSession" title="Clear conversation">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages-area" @ref="messagesContainer">
+                @foreach (var message in messages)
+                {
+                    var isUser = message.Role == "user";
+                    var isSystem = message.Role == "system";
+                    
+                    @if (!isSystem)
+                    {
+                        <div class="message @(isUser ? "user-message" : "agent-message")">
+                            @if (!isUser)
+                            {
+                                <div class="avatar me-2">
+                                    <i class="bi bi-robot"></i>
+                                </div>
+                            }
+                            
+                            <div class="message-content @(isUser ? "bg-primary text-white" : "bg-light")">
+                                @if (!string.IsNullOrEmpty(message.Text))
+                                {
+                                    <div>@((MarkupString)FormatMessage(message.Text))</div>
+                                }
+
+                                <small class="d-block mt-1 @(isUser ? "text-white-50" : "text-muted")">
+                                    @message.Role
+                                </small>
+                            </div>
+
+                            @if (isUser)
+                            {
+                                <div class="avatar ms-2">
+                                    <i class="bi bi-person-circle"></i>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+
+                @if (isStreaming && !string.IsNullOrEmpty(streamingMessage))
+                {
+                    <div class="message agent-message">
+                        <div class="avatar me-2">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="message-content bg-light">
+                            <div>@((MarkupString)FormatMessage(streamingMessage))</div>
+                            <div class="streaming-cursor"></div>
+                        </div>
+                    </div>
+                }
+                else if (isTyping)
+                {
+                    <div class="message agent-message">
+                        <div class="avatar me-2">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="message-content bg-light">
+                            <div class="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Input Area -->
+            <div class="chat-input">
+                <div class="d-flex gap-3 align-items-end">
+                    <textarea class="form-control chat-textarea" 
+                             rows="1" 
+                             placeholder="Type your message..." 
+                             @bind="messageInput" 
+                             @bind:event="oninput"
+                             @onkeydown="HandleKeyDown" 
+                             @ref="messageTextarea"
+                             style="resize: none; min-height: 52px; max-height: 200px; overflow-y: auto;"></textarea>
+                    <button class="btn btn-send" @onclick="SendMessage" disabled="@(string.IsNullOrWhiteSpace(messageInput) || isTyping)">
+                        @if (isTyping)
+                        {
+                            <div class="sending-animation"></div>
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
+                            </svg>
+                        }
+                    </button>
+                </div>
+                <small class="text-muted mt-2 d-block" style="font-size: 0.8rem;">
+                    <kbd>Enter</kbd> to send • <kbd>Shift + Enter</kbd> for new line
+                </small>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .agent-selection-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 120px);
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .agent-selection-card {
+        background: white;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 1200px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .agents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .agent-card {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 24px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .agent-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .agent-card.selected {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+    }
+
+    .agent-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .agent-description {
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+        min-height: 40px;
+    }
+
+    .agent-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .chat-container {
+        display: flex;
+        height: calc(100vh - 120px);
+        gap: 0;
+    }
+
+    .conversations-sidebar {
+        width: 320px;
+        background: white;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .sidebar-header h5 {
+        margin: 0;
+    }
+
+    .conversations-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .conversation-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .conversation-item:hover {
+        background: #f8f9fa;
+    }
+
+    .conversation-item.active {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .conversation-item.active strong,
+    .conversation-item.active small {
+        color: white !important;
+    }
+
+    .chat-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fa;
+    }
+
+    .chat-header {
+        background: white;
+        border-bottom: 1px solid #dee2e6;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .messages-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .message {
+        display: flex;
+        align-items: flex-start;
+        animation: fadeIn 0.3s;
+    }
+
+    .message.user-message {
+        justify-content: flex-end;
+    }
+
+    .message-content {
+        max-width: 70%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        word-wrap: break-word;
+    }
+
+    .chat-input {
+        background: white;
+        border-top: 1px solid #dee2e6;
+        padding: 20px;
+    }
+
+    .chat-textarea {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.95rem;
+        transition: border-color 0.2s;
+    }
+
+    .chat-textarea:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    }
+
+    .btn-send {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        flex-shrink: 0;
+    }
+
+    .btn-send:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+        background: linear-gradient(135deg, #7c8ef7 0%, #8a5bb5 100%);
+    }
+
+    .btn-send:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-send:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #6c757d;
+    }
+
+    .sending-animation {
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    kbd {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 0.85em;
+        font-family: monospace;
+    }
+
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 8px;
+    }
+
+    .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #6c757d;
+        animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-indicator span:nth-child(1) {
+        animation-delay: -0.32s;
+    }
+
+    .typing-indicator span:nth-child(2) {
+        animation-delay: -0.16s;
+    }
+
+    .streaming-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: #0d6efd;
+        margin-left: 2px;
+        animation: blink 1s infinite;
+    }
+
+    @@keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    @@keyframes bounce {
+        0%, 80%, 100% {
+            transform: scale(0);
+        }
+        40% {
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+@code {
+    // Using shared DTOs from Codefix.AIPlayGround.Models.DTOs
+    
+    public class StartChatSessionResponse
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public string AgentId { get; set; } = string.Empty;
+        public string AgentName { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public ChatMessageDto? InitialResponse { get; set; }
+    }
+
+    public class SendMessageRequest
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public Dictionary<string, object>? Context { get; set; }
+    }
+
+    public class SendMessageResponse
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public ChatMessageDto UserMessage { get; set; } = null!;
+        public ChatMessageDto AgentMessage { get; set; } = null!;
+        public DateTime Timestamp { get; set; }
+    }
+
+    public class GetChatHistoryResponse
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public List<ChatMessageDto> Messages { get; set; } = new();
+        public int TotalMessages { get; set; }
+        public bool HasMore { get; set; }
+    }
+
+    public class ChatSession
+    {
+        public string SessionId { get; set; } = string.Empty;
+        public string AgentId { get; set; } = string.Empty;
+        public string AgentName { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime LastActivityAt { get; set; }
+        public List<ChatMessageDto> Messages { get; set; } = new();
+        public Dictionary<string, object> Metadata { get; set; } = new();
+    }
+
+    [Parameter] public string? SessionId { get; set; }
+
+    private ElementReference messagesContainer;
+    private ElementReference messageTextarea;
+    private string messageInput = "";
+    private string conversationSearch = "";
+    private string agentSearch = "";
+    private string currentAgentName = "AI Assistant";
+    private string? currentSessionId = null;
+    private string? selectedAgentId = null;
+    private bool isTyping = false;
+    private bool hasSelectedAgent = false;
+    private bool isLoadingAgents = false;
+    private bool isStartingChat = false;
+    private string streamingMessage = "";
+    private bool isStreaming = false;
+
+    private List<ChatMessageDto> messages = new();
+    private List<ChatConversationResponse> conversations = new();
+    private List<AgentResponse> availableAgents = new();
+
+    private IEnumerable<ChatConversationResponse> FilteredConversations =>
+        string.IsNullOrWhiteSpace(conversationSearch)
+            ? conversations
+            : conversations.Where(c => c.Title?.Contains(conversationSearch, StringComparison.OrdinalIgnoreCase) == true);
+
+    private IEnumerable<AgentResponse> FilteredAgents =>
+        string.IsNullOrWhiteSpace(agentSearch)
+            ? availableAgents
+            : availableAgents.Where(a => 
+                a.Name.Contains(agentSearch, StringComparison.OrdinalIgnoreCase) ||
+                a.Description.Contains(agentSearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableAgents();
+
+        // If sessionId is provided in URL, load that session
+        if (!string.IsNullOrEmpty(SessionId))
+        {
+            await LoadSession(SessionId);
+        }
+    }
+
+    private async Task LoadAvailableAgents()
+    {
+        try
+        {
+            isLoadingAgents = true;
+            StateHasChanged();
+
+            // Call server API to get agents
+            var response = await Http.GetFromJsonAsync<List<AgentResponse>>("/api/agents?pageSize=100");
+            if (response != null)
+            {
+                availableAgents = response;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading agents: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingAgents = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectAgent(string agentId)
+    {
+        selectedAgentId = agentId;
+        StateHasChanged();
+    }
+
+    private async Task StartChatWithSelectedAgent()
+    {
+        if (string.IsNullOrEmpty(selectedAgentId))
+            return;
+
+        try
+        {
+            isStartingChat = true;
+            StateHasChanged();
+
+            var request = new StartChatSessionRequest
+            {
+                AgentId = selectedAgentId
+            };
+
+            // Call server API to start session
+            var response = await Http.PostAsJsonAsync("/api/chat/sessions", request);
+            response.EnsureSuccessStatusCode();
+
+            var sessionResponse = await response.Content.ReadFromJsonAsync<StartChatSessionResponse>();
+            if (sessionResponse != null)
+            {
+                currentSessionId = sessionResponse.SessionId;
+                currentAgentName = sessionResponse.AgentName;
+                hasSelectedAgent = true;
+
+                await LoadChatHistory();
+                await LoadConversations();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting chat session: {ex.Message}");
+        }
+        finally
+        {
+            isStartingChat = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSession(string sessionId)
+    {
+        try
+        {
+            var session = await Http.GetFromJsonAsync<ChatSession>($"/api/chat/sessions/{sessionId}");
+            if (session != null)
+            {
+                currentSessionId = session.SessionId;
+                currentAgentName = session.AgentName;
+                hasSelectedAgent = true;
+                messages = session.Messages;
+
+                await LoadConversations();
+                StateHasChanged();
+                await ScrollToBottom();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading session: {ex.Message}");
+        }
+    }
+
+    private async Task LoadConversations()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<List<ChatConversationResponse>>("/api/chat/conversations");
+            if (response != null)
+            {
+                conversations = response;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading conversations: {ex.Message}");
+        }
+    }
+
+    private async Task LoadChatHistory()
+    {
+        if (string.IsNullOrEmpty(currentSessionId))
+            return;
+
+        try
+        {
+            var response = await Http.GetFromJsonAsync<GetChatHistoryResponse>($"/api/chat/sessions/{currentSessionId}/messages");
+            if (response != null)
+            {
+                messages = response.Messages;
+                StateHasChanged();
+                await ScrollToBottom();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading chat history: {ex.Message}");
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(messageInput) || string.IsNullOrEmpty(currentSessionId))
+            return;
+
+        var userMessageText = messageInput;
+        messageInput = "";
+
+        try
+        {
+            // 1. Add user message immediately for instant feedback
+            var userMsg = new ChatMessageDto
+            {
+                Role = "user",
+                Text = userMessageText
+            };
+            messages.Add(userMsg);
+            StateHasChanged();
+            await ScrollToBottom();
+
+            // 2. Show streaming state
+            isStreaming = true;
+            streamingMessage = "";
+            StateHasChanged();
+
+            var request = new SendMessageRequest
+            {
+                SessionId = currentSessionId,
+                Message = userMessageText
+            };
+
+            // 3. Use streaming endpoint for real-time response
+            var response = await Http.PostAsJsonAsync($"/api/chat/sessions/{currentSessionId}/messages/stream", request);
+            response.EnsureSuccessStatusCode();
+
+            // 4. Stream the response chunk by chunk
+            using var stream = await response.Content.ReadAsStreamAsync();
+            var buffer = new byte[16]; // Read small chunks for smooth streaming
+            int bytesRead;
+            var updateCounter = 0;
+            
+            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                var chunk = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                streamingMessage += chunk;
+                
+                // Update UI every few chunks for smooth rendering without overwhelming the UI thread
+                updateCounter++;
+                if (updateCounter % 3 == 0)
+                {
+                    StateHasChanged();
+                    await Task.Delay(1); // Tiny delay for visual smoothness
+                }
+                
+                // Scroll every 20 chunks
+                if (updateCounter % 20 == 0)
+                {
+                    await ScrollToBottom();
+                }
+            }
+            
+            // Final update and scroll
+            StateHasChanged();
+            await ScrollToBottom();
+
+            // 5. Add completed message to history
+            if (!string.IsNullOrEmpty(streamingMessage))
+            {
+                messages.Add(new ChatMessageDto
+                {
+                    Role = "assistant",
+                    Text = streamingMessage
+                });
+            }
+
+            // 6. Update conversations list
+            await LoadConversations();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending message: {ex.Message}");
+            
+            // Fallback to non-streaming if streaming fails
+            try
+            {
+                var request = new SendMessageRequest
+                {
+                    SessionId = currentSessionId,
+                    Message = userMessageText
+                };
+
+                var response = await Http.PostAsJsonAsync($"/api/chat/sessions/{currentSessionId}/messages", request);
+                response.EnsureSuccessStatusCode();
+
+                var messageResponse = await response.Content.ReadFromJsonAsync<SendMessageResponse>();
+                if (messageResponse != null && messageResponse.AgentMessage != null)
+                {
+                    messages.Add(messageResponse.AgentMessage);
+                }
+            }
+            catch (Exception fallbackEx)
+            {
+                Console.WriteLine($"Fallback error: {fallbackEx.Message}");
+            }
+        }
+        finally
+        {
+            isStreaming = false;
+            streamingMessage = "";
+            isTyping = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", "setTimeout(() => { const el = document.querySelector('.messages-area'); if (el) el.scrollTop = el.scrollHeight; }, 100)");
+        }
+        catch { }
+    }
+
+    private async Task SelectConversation(string sessionId)
+    {
+        if (currentSessionId != sessionId)
+        {
+            currentSessionId = sessionId;
+            await LoadSession(sessionId);
+        }
+    }
+
+    private void StartNewConversation()
+    {
+        hasSelectedAgent = false;
+        currentSessionId = null;
+        selectedAgentId = null;
+        messages.Clear();
+        StateHasChanged();
+    }
+
+    private void BackToAgentSelection()
+    {
+        hasSelectedAgent = false;
+        currentSessionId = null;
+        messages.Clear();
+        StateHasChanged();
+    }
+
+    private async Task ClearCurrentSession()
+    {
+        if (string.IsNullOrEmpty(currentSessionId))
+            return;
+
+        try
+        {
+            await Http.DeleteAsync($"/api/chat/sessions/{currentSessionId}");
+            StartNewConversation();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error clearing session: {ex.Message}");
+        }
+    }
+
+    private string FormatMessage(string content)
+    {
+        // Simple markdown-like formatting
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"\*(.*?)\*", "<em>$1</em>");
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"`(.*?)`", "<code>$1</code>");
+        return content.Replace("\n", "<br/>");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Cleanup if needed
+        await Task.CompletedTask;
+    }
+}
+

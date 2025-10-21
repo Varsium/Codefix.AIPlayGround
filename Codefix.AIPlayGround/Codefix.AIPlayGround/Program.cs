@@ -17,6 +17,9 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents()
     .AddAuthenticationStateSerialization();
 
+// Add controllers for API endpoints
+builder.Services.AddControllers();
+
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
@@ -31,6 +34,13 @@ builder.Services.AddAuthentication(options =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Add DbContextFactory for parallel operations in Direct Services
+// Use Scoped lifetime to avoid singleton/scoped service lifetime conflicts
+builder.Services.AddDbContextFactory<ApplicationDbContext>(
+    options => options.UseSqlServer(connectionString),
+    ServiceLifetime.Scoped);
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -43,9 +53,6 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
-
-// Add Controllers
-builder.Services.AddControllers();
 
 // Add OpenAPI and Scalar documentation
 builder.Services.AddOpenApi();
@@ -60,6 +67,23 @@ builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentFactory, Codefix.
 
 // Add Workflow Seeding service
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IWorkflowSeedingService, Codefix.AIPlayGround.Services.WorkflowSeedingService>();
+
+// Add Chat service (scoped to maintain agent instances per session)
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IChatService, Codefix.AIPlayGround.Services.ChatService>();
+
+// Add Direct Services for Server-side rendering (direct DB/service access)
+// These will be used when components are rendered on the server
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentApiService, Codefix.AIPlayGround.Services.DirectAgentService>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IDashboardApiService, Codefix.AIPlayGround.Services.DirectDashboardService>();
+
+// Add session support for session management
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(2);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 var app = builder.Build();
 
@@ -81,7 +105,7 @@ if (app.Environment.IsDevelopment())
     // Map OpenAPI endpoint
     app.MapOpenApi();
     
-    // Map Scalar UI
+    // Map Scalar API documentation UI
     app.MapScalarApiReference();
 }
 else
@@ -92,6 +116,8 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+app.UseSession();
 
 app.UseAntiforgery();
 
@@ -104,7 +130,7 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-// Map API Controllers
+// Map API controllers
 app.MapControllers();
 
 app.Run();

@@ -1,0 +1,223 @@
+@page "/agents/new"
+@using Codefix.AIPlayGround.Models.DTOs
+@using Codefix.AIPlayGround.Services
+@inject IAgentApiService AgentService
+@inject NavigationManager Navigation
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [StreamRendering(true)]
+
+<PageTitle>Create Agent - AI PlayGround</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/agents"))">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <h2 class="mb-0">Create New Agent</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isSaving)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Creating agent...</span>
+            </div>
+            <p class="mt-3 text-muted">Creating your agent...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Agent Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                @errorMessage
+                                <button type="button" class="btn-close" @onclick="@(() => errorMessage = "")"></button>
+                            </div>
+                        }
+
+                        <EditForm Model="@newAgent" OnValidSubmit="CreateAgent">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <!-- Basic Information -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Agent Name *</label>
+                                <InputText class="form-control" @bind-Value="newAgent.Name" placeholder="Enter agent name" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Description</label>
+                                <InputTextArea class="form-control" @bind-Value="newAgent.Description" rows="3" placeholder="Describe what this agent does" />
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Agent Type *</label>
+                                    <InputSelect class="form-select" @bind-Value="newAgent.AgentType">
+                                        <option value="">-- Select Type --</option>
+                                        <option value="ReAct">ReAct</option>
+                                        <option value="Conversational">Conversational</option>
+                                        <option value="Tool">Tool</option>
+                                        <option value="Planning">Planning</option>
+                                        <option value="Custom">Custom</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Instructions</label>
+                                <InputTextArea class="form-control" @bind-Value="newAgent.Instructions" rows="5" placeholder="Provide system instructions for the agent" />
+                            </div>
+
+                            <!-- LLM Configuration -->
+                            <hr class="my-4" />
+                            <h5 class="mb-3">LLM Configuration</h5>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Model</label>
+                                    <InputText class="form-control" @bind-Value="llmConfig.ModelName" placeholder="e.g., gpt-4" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Provider</label>
+                                    <InputText class="form-control" @bind-Value="llmConfig.Provider" placeholder="e.g., OpenAI" />
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Temperature</label>
+                                    <InputNumber class="form-control" @bind-Value="llmConfig.Temperature" step="0.1" min="0" max="2" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Max Tokens</label>
+                                    <InputNumber class="form-control" @bind-Value="llmConfig.MaxTokens" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Top P</label>
+                                    <InputNumber class="form-control" @bind-Value="llmConfig.TopP" step="0.1" min="0" max="1" />
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="d-flex gap-2 mt-4">
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    <i class="bi bi-check-circle me-2"></i> Create Agent
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/agents"))" disabled="@isSaving">
+                                    Cancel
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Panel -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i> Quick Tips</h6>
+                    </div>
+                    <div class="card-body">
+                        <small>
+                            <p><strong>Agent Types:</strong></p>
+                            <ul class="small">
+                                <li><strong>ReAct:</strong> Reasoning + Acting agent</li>
+                                <li><strong>Conversational:</strong> Chat-based agent</li>
+                                <li><strong>Tool:</strong> Tool-calling specialist</li>
+                                <li><strong>Planning:</strong> Multi-step planner</li>
+                            </ul>
+
+                            <p class="mt-3"><strong>Temperature:</strong></p>
+                            <p class="small">Controls randomness (0.0 = deterministic, 2.0 = very creative)</p>
+
+                            <p class="mt-3"><strong>Max Tokens:</strong></p>
+                            <p class="small">Maximum response length. Higher = longer responses but more expensive.</p>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CreateAgentRequest newAgent = new()
+    {
+        Name = "",
+        Description = "",
+        AgentType = "ReAct",
+        Instructions = ""
+    };
+    
+    private LLMConfiguration llmConfig = new()
+    {
+        ModelName = "gpt-4",
+        Provider = "OpenAI",
+        Temperature = 0.7,
+        MaxTokens = 2000,
+        TopP = 1.0
+    };
+
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+
+    private async Task CreateAgent()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Validate
+            if (string.IsNullOrWhiteSpace(newAgent.Name))
+            {
+                errorMessage = "Agent name is required";
+                isSaving = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(newAgent.AgentType))
+            {
+                errorMessage = "Agent type is required";
+                isSaving = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Assign LLM configuration to the agent
+            newAgent.LLMConfiguration = llmConfig;
+
+            // Create the agent
+            var createdAgent = await AgentService.CreateAgentAsync(newAgent);
+
+            // Navigate to the newly created agent's detail page
+            Navigation.NavigateTo($"/agents/{createdAgent.Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to create agent: {ex.Message}";
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+}
+

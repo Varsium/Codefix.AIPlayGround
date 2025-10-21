@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Codefix.AIPlayGround.Models.DTOs;
 
-public class FlowDto
+public class FlowResponse
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -16,16 +16,16 @@ public class FlowDto
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-public class FlowDetailDto : FlowDto
+public class FlowDetailResponse : FlowResponse
 {
     public Dictionary<string, object> Configuration { get; set; } = new();
-    public List<AgentDto> Agents { get; set; } = new();
-    public List<NodeDto> Nodes { get; set; } = new();
-    public List<FlowDto> SubFlows { get; set; } = new();
-    public List<FlowExecutionDto> RecentExecutions { get; set; } = new();
+    public List<AgentResponse> Agents { get; set; } = new();
+    public List<NodeResponse> Nodes { get; set; } = new();
+    public List<FlowResponse> SubFlows { get; set; } = new();
+    public List<FlowExecutionResponse> RecentExecutions { get; set; } = new();
 }
 
-public class CreateFlowDto
+public class CreateFlowRequest
 {
     [Required]
     [MaxLength(255)]
@@ -44,7 +44,7 @@ public class CreateFlowDto
     public string? ParentFlowId { get; set; }
 }
 
-public class UpdateFlowDto
+public class UpdateFlowRequest
 {
     [MaxLength(255)]
     public string? Name { get; set; }
@@ -62,7 +62,7 @@ public class UpdateFlowDto
     public string? ParentFlowId { get; set; }
 }
 
-public class FlowFilterDto
+public class GetFlowsRequest
 {
     public string? Name { get; set; }
     public string? FlowType { get; set; }
@@ -75,7 +75,7 @@ public class FlowFilterDto
     public int PageSize { get; set; } = 20;
 }
 
-public class FlowExecutionDto
+public class FlowExecutionResponse
 {
     public string Id { get; set; } = string.Empty;
     public string FlowId { get; set; } = string.Empty;
@@ -89,7 +89,7 @@ public class FlowExecutionDto
     public List<object> Steps { get; set; } = new();
 }
 
-public class ExecutionResultDto
+public class FlowExecutionResult
 {
     public bool IsSuccess { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -99,14 +99,14 @@ public class ExecutionResultDto
     public List<string> Errors { get; set; } = new();
 }
 
-public class ExecutionInputDto
+public class ExecuteFlowRequest
 {
     public Dictionary<string, object> Input { get; set; } = new();
     public Dictionary<string, object> Context { get; set; } = new();
     public Dictionary<string, object> Options { get; set; } = new();
 }
 
-public class AddAgentToFlowDto
+public class AddAgentToFlowRequest
 {
     [Required]
     public string AgentId { get; set; } = string.Empty;
@@ -118,7 +118,7 @@ public class AddAgentToFlowDto
     public int Order { get; set; } = 0;
 }
 
-public class AddNodeToFlowDto
+public class AddNodeToFlowRequest
 {
     [Required]
     public string NodeId { get; set; } = string.Empty;

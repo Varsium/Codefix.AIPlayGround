@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Codefix.AIPlayGround.Models.DTOs;
 
-public class NodeDto
+public class NodeResponse
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -14,18 +14,18 @@ public class NodeDto
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-public class NodeDetailDto : NodeDto
+public class NodeDetailResponse : NodeResponse
 {
     public Dictionary<string, object> Configuration { get; set; } = new();
     public Dictionary<string, object> InputSchema { get; set; } = new();
     public Dictionary<string, object> OutputSchema { get; set; } = new();
     public Dictionary<string, object> Properties { get; set; } = new();
-    public List<FlowDto> Flows { get; set; } = new();
-    public List<NodeConnectionDto> SourceConnections { get; set; } = new();
-    public List<NodeConnectionDto> TargetConnections { get; set; } = new();
+    public List<FlowResponse> Flows { get; set; } = new();
+    public List<NodeConnectionResponse> SourceConnections { get; set; } = new();
+    public List<NodeConnectionResponse> TargetConnections { get; set; } = new();
 }
 
-public class CreateNodeDto
+public class CreateNodeRequest
 {
     [Required]
     [MaxLength(255)]
@@ -44,7 +44,7 @@ public class CreateNodeDto
     public Dictionary<string, object> Properties { get; set; } = new();
 }
 
-public class UpdateNodeDto
+public class UpdateNodeRequest
 {
     [MaxLength(255)]
     public string? Name { get; set; }
@@ -61,7 +61,7 @@ public class UpdateNodeDto
     public Dictionary<string, object>? Properties { get; set; }
 }
 
-public class NodeFilterDto
+public class GetNodesRequest
 {
     public string? Name { get; set; }
     public string? NodeType { get; set; }
@@ -73,7 +73,7 @@ public class NodeFilterDto
     public int PageSize { get; set; } = 20;
 }
 
-public class NodeConnectionDto
+public class NodeConnectionResponse
 {
     public string Id { get; set; } = string.Empty;
     public string SourceNodeId { get; set; } = string.Empty;
@@ -85,7 +85,7 @@ public class NodeConnectionDto
     public Dictionary<string, object> Configuration { get; set; } = new();
 }
 
-public class CreateConnectionDto
+public class CreateConnectionRequest
 {
     [Required]
     public string TargetNodeId { get; set; } = string.Empty;
@@ -105,7 +105,7 @@ public class CreateConnectionDto
     public Dictionary<string, object> Configuration { get; set; } = new();
 }
 
-public class NodeTemplateDto
+public class NodeTemplateResponse
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -121,7 +121,7 @@ public class NodeTemplateDto
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-public class CreateNodeTemplateDto
+public class CreateNodeTemplateRequest
 {
     [Required]
     [MaxLength(255)]
@@ -140,5 +140,4 @@ public class CreateNodeTemplateDto
     public Dictionary<string, object> Properties { get; set; } = new();
     public bool IsSystemTemplate { get; set; } = false;
 }
-
 

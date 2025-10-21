@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Codefix.AIPlayGround.Models.DTOs;
 
-public class AgentDto
+public class AgentResponse
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -14,20 +14,20 @@ public class AgentDto
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-public class AgentDetailDto : AgentDto
+public class AgentDetailResponse : AgentResponse
 {
     public string Instructions { get; set; } = string.Empty;
-    public LLMConfigurationDto? LLMConfiguration { get; set; }
-    public List<ToolConfigurationDto> Tools { get; set; } = new();
-    public PromptTemplateDto? PromptTemplate { get; set; }
-    public MemoryConfigurationDto? MemoryConfiguration { get; set; }
-    public CheckpointConfigurationDto? CheckpointConfiguration { get; set; }
+    public LLMConfiguration? LLMConfiguration { get; set; }
+    public List<ToolConfiguration> Tools { get; set; } = new();
+    public PromptTemplate? PromptTemplate { get; set; }
+    public MemoryConfiguration? MemoryConfiguration { get; set; }
+    public CheckpointConfiguration? CheckpointConfiguration { get; set; }
     public Dictionary<string, object> Properties { get; set; } = new();
-    public List<FlowDto> Flows { get; set; } = new();
-    public List<AgentExecutionDto> RecentExecutions { get; set; } = new();
+    public List<FlowResponse> Flows { get; set; } = new();
+    public List<AgentExecutionResponse> RecentExecutions { get; set; } = new();
 }
 
-public class CreateAgentDto
+public class CreateAgentRequest
 {
     [Required]
     [MaxLength(255)]
@@ -43,15 +43,15 @@ public class CreateAgentDto
     [Required]
     public string Instructions { get; set; } = string.Empty;
     
-    public LLMConfigurationDto? LLMConfiguration { get; set; }
-    public List<ToolConfigurationDto> Tools { get; set; } = new();
-    public PromptTemplateDto? PromptTemplate { get; set; }
-    public MemoryConfigurationDto? MemoryConfiguration { get; set; }
-    public CheckpointConfigurationDto? CheckpointConfiguration { get; set; }
+    public LLMConfiguration? LLMConfiguration { get; set; }
+    public List<ToolConfiguration> Tools { get; set; } = new();
+    public PromptTemplate? PromptTemplate { get; set; }
+    public MemoryConfiguration? MemoryConfiguration { get; set; }
+    public CheckpointConfiguration? CheckpointConfiguration { get; set; }
     public Dictionary<string, object> Properties { get; set; } = new();
 }
 
-public class UpdateAgentDto
+public class UpdateAgentRequest
 {
     [MaxLength(255)]
     public string? Name { get; set; }
@@ -60,15 +60,15 @@ public class UpdateAgentDto
     public string? Description { get; set; }
     
     public string? Instructions { get; set; }
-    public LLMConfigurationDto? LLMConfiguration { get; set; }
-    public List<ToolConfigurationDto>? Tools { get; set; }
-    public PromptTemplateDto? PromptTemplate { get; set; }
-    public MemoryConfigurationDto? MemoryConfiguration { get; set; }
-    public CheckpointConfigurationDto? CheckpointConfiguration { get; set; }
+    public LLMConfiguration? LLMConfiguration { get; set; }
+    public List<ToolConfiguration>? Tools { get; set; }
+    public PromptTemplate? PromptTemplate { get; set; }
+    public MemoryConfiguration? MemoryConfiguration { get; set; }
+    public CheckpointConfiguration? CheckpointConfiguration { get; set; }
     public Dictionary<string, object>? Properties { get; set; }
 }
 
-public class AgentFilterDto
+public class GetAgentsRequest
 {
     public string? Name { get; set; }
     public string? AgentType { get; set; }
@@ -80,15 +80,15 @@ public class AgentFilterDto
     public int PageSize { get; set; } = 20;
 }
 
-public class AgentStatusDto
+public class AgentStatusResponse
 {
     public string AgentId { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public AgentExecutionDto? LastExecution { get; set; }
+    public AgentExecutionResponse? LastExecution { get; set; }
     public Dictionary<string, object> Metrics { get; set; } = new();
 }
 
-public class AgentExecutionDto
+public class AgentExecutionResponse
 {
     public string Id { get; set; } = string.Empty;
     public string AgentId { get; set; } = string.Empty;
@@ -101,7 +101,7 @@ public class AgentExecutionDto
     public List<string> Errors { get; set; } = new();
 }
 
-public class DeploymentResultDto
+public class DeploymentResult
 {
     public bool IsSuccess { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -109,7 +109,7 @@ public class DeploymentResultDto
     public Dictionary<string, object> Metadata { get; set; } = new();
 }
 
-public class TestResultDto
+public class TestResult
 {
     public bool IsSuccess { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -119,14 +119,14 @@ public class TestResultDto
     public List<string> Errors { get; set; } = new();
 }
 
-public class TestInputDto
+public class TestAgentRequest
 {
     public Dictionary<string, object> Input { get; set; } = new();
     public Dictionary<string, object> Context { get; set; } = new();
 }
 
-// Configuration DTOs
-public class LLMConfigurationDto
+// Configuration Models
+public class LLMConfiguration
 {
     public string ModelName { get; set; } = "gpt-4";
     public string Provider { get; set; } = "OpenAI";
@@ -140,7 +140,7 @@ public class LLMConfigurationDto
     public List<string> StopSequences { get; set; } = new();
 }
 
-public class ToolConfigurationDto
+public class ToolConfiguration
 {
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
@@ -149,16 +149,16 @@ public class ToolConfigurationDto
     public bool IsEnabled { get; set; } = true;
 }
 
-public class PromptTemplateDto
+public class PromptTemplate
 {
     public string SystemPrompt { get; set; } = string.Empty;
     public string UserPrompt { get; set; } = string.Empty;
     public string AssistantPrompt { get; set; } = string.Empty;
-    public List<PromptVariableDto> Variables { get; set; } = new();
+    public List<PromptVariable> Variables { get; set; } = new();
     public string Template { get; set; } = string.Empty;
 }
 
-public class PromptVariableDto
+public class PromptVariable
 {
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = "string";
@@ -167,7 +167,7 @@ public class PromptVariableDto
     public bool IsRequired { get; set; } = true;
 }
 
-public class MemoryConfigurationDto
+public class MemoryConfiguration
 {
     public bool EnableMemory { get; set; } = true;
     public int MaxMemoryItems { get; set; } = 100;
@@ -176,7 +176,7 @@ public class MemoryConfigurationDto
     public TimeSpan MemoryRetention { get; set; } = TimeSpan.FromDays(30);
 }
 
-public class CheckpointConfigurationDto
+public class CheckpointConfiguration
 {
     public bool EnableCheckpoints { get; set; } = true;
     public string CheckpointType { get; set; } = "automatic";

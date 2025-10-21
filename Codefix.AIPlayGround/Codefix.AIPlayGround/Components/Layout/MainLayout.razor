@@ -1,8 +1,58 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu />
+        <nav class="flex-column">
+            <div class="nav-item px-3">
+                <h5 class="text-primary">AI PlayGround</h5>
+            </div>
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                <i class="bi bi-house-door me-2"></i> Dashboard
+            </NavLink>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">
+                    <i class="bi bi-robot me-2"></i> Agents
+                </div>
+                <NavLink class="nav-link ps-4" href="/agents" data-enhance-nav="false">
+                    <i class="bi bi-list-ul me-2"></i> All Agents
+                </NavLink>
+                <NavLink class="nav-link ps-4" href="/agents/new" data-enhance-nav="false">
+                    <i class="bi bi-plus-circle me-2"></i> Create Agent
+                </NavLink>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">
+                    <i class="bi bi-diagram-3 me-2"></i> Workflows
+                </div>
+                <NavLink class="nav-link ps-4" href="/workflows">
+                    <i class="bi bi-list-ul me-2"></i> All Workflows
+                </NavLink>
+                <NavLink class="nav-link ps-4" href="/workflows/builder" data-enhance-nav="false">
+                    <i class="bi bi-palette me-2"></i> Workflow Builder
+                </NavLink>
+            </div>
+
+            <NavLink class="nav-link" href="/chat">
+                <i class="bi bi-chat-dots me-2"></i> Chat
+            </NavLink>
+
+            <NavLink class="nav-link" href="/knowledge-base">
+                <i class="bi bi-file-earmark-text me-2"></i> Knowledge Base
+            </NavLink>
+
+            <NavLink class="nav-link" href="/tasks">
+                <i class="bi bi-list-check me-2"></i> Tasks
+            </NavLink>
+
+            <div class="border-top mt-3 pt-3">
+                <NavLink class="nav-link" href="/settings">
+                    <i class="bi bi-gear me-2"></i> Settings
+                </NavLink>
+            </div>
+        </nav>
     </div>
 
     <main>
@@ -10,13 +60,103 @@
             @Body
         </article>
     </main>
+
+    <!-- Render Mode Indicator -->
+    <RenderModeIndicator />
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
 
-<script src="~/js/workflow-builder.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    .sidebar {
+        background: white;
+        border-right: 1px solid #dee2e6;
+    }
+
+    .top-row {
+        background-color: #f7f7f7;
+        border-bottom: 1px solid #d6d5d5;
+        justify-content: flex-end;
+        height: 3.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .top-row a {
+        margin-left: 1.5rem;
+    }
+
+    main {
+        flex: 1;
+    }
+
+    .content {
+        padding-top: 1.1rem;
+    }
+
+    .sidebar {
+        width: 260px;
+    }
+
+    .nav-link {
+        color: #6c757d;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin: 2px 8px;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .nav-link.active {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .nav-section {
+        margin: 8px 0;
+    }
+
+    .nav-section-title {
+        font-weight: 600;
+        padding: 8px 12px;
+        margin: 2px 8px;
+        color: #495057;
+        font-size: 14px;
+    }
+
+    @@media (min-width: 641px) {
+        .page {
+            flex-direction: row;
+        }
+
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .top-row {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        main > div {
+            padding-left: 2rem !important;
+            padding-right: 1.5rem !important;
+        }
+    }
+</style>
+

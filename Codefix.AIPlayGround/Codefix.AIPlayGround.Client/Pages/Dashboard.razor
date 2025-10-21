@@ -1,0 +1,260 @@
+@page "/"
+@using Codefix.AIPlayGround.Services
+@using Codefix.AIPlayGround.Models.DTOs
+@inject NavigationManager Navigation
+@inject IDashboardApiService DashboardService
+@rendermode InteractiveAuto
+
+<PageTitle>Dashboard - AI PlayGround</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Dashboard</h2>
+                    <p class="text-muted">Welcome back! Here's what's happening with your AI agents.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary" @onclick="RefreshDashboard" disabled="@isLoading">
+                        <i class="bi bi-arrow-clockwise me-2"></i> Refresh
+                    </button>
+                    <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/agents/new", forceLoad: true))">
+                        <i class="bi bi-plus-circle me-2"></i> Create Agent
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (stats != null)
+    {
+        <!-- Stats Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="h2 mb-0">@stats.TotalAgents</div>
+                                <div class="text-muted small">Total Agents</div>
+                                @if (stats.AgentGrowth != 0)
+                                {
+                                    <div class="@(stats.AgentGrowth > 0 ? "text-success" : "text-danger") small mt-2">
+                                        <i class="bi bi-arrow-@(stats.AgentGrowth > 0 ? "up" : "down")"></i> @Math.Abs(stats.AgentGrowth).ToString("F1")% from last month
+                                    </div>
+                                }
+                            </div>
+                            <div>
+                                <i class="bi bi-robot" style="font-size: 48px; opacity: 0.2; color: #0d6efd;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="h2 mb-0">@stats.ActiveAgents</div>
+                                <div class="text-muted small">Active Agents</div>
+                                @if (stats.ActiveGrowth != 0)
+                                {
+                                    <div class="@(stats.ActiveGrowth > 0 ? "text-success" : "text-danger") small mt-2">
+                                        <i class="bi bi-arrow-@(stats.ActiveGrowth > 0 ? "up" : "down")"></i> @Math.Abs(stats.ActiveGrowth).ToString("F1")% this week
+                                    </div>
+                                }
+                            </div>
+                            <div>
+                                <i class="bi bi-play-circle" style="font-size: 48px; opacity: 0.2; color: #198754;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="h2 mb-0">@stats.TotalExecutions.ToString("N0")</div>
+                                <div class="text-muted small">Total Executions</div>
+                                @if (stats.ExecutionGrowth != 0)
+                                {
+                                    <div class="@(stats.ExecutionGrowth > 0 ? "text-success" : "text-danger") small mt-2">
+                                        <i class="bi bi-arrow-@(stats.ExecutionGrowth > 0 ? "up" : "down")"></i> @Math.Abs(stats.ExecutionGrowth).ToString("F1")% today
+                                    </div>
+                                }
+                            </div>
+                            <div>
+                                <i class="bi bi-lightning-fill" style="font-size: 48px; opacity: 0.2; color: #ffc107;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="h2 mb-0">@stats.SuccessRate.ToString("F1")%</div>
+                                <div class="text-muted small">Success Rate</div>
+                                <div class="text-muted small mt-2">
+                                    <i class="bi bi-info-circle"></i> Based on all executions
+                                </div>
+                            </div>
+                            <div>
+                                <i class="bi bi-check-circle-fill" style="font-size: 48px; opacity: 0.2; color: #198754;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity & Quick Actions -->
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Activity</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (recentActivity.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var activity in recentActivity)
+                                {
+                                    <div class="list-group-item d-flex align-items-center">
+                                        <div class="rounded-circle bg-@(activity.IconColor)-subtle p-2 me-3">
+                                            <i class="bi bi-@activity.Icon text-@activity.IconColor"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold">@activity.Title</div>
+                                            <small class="text-muted">@activity.Description</small>
+                                        </div>
+                                        <small class="text-muted">@GetTimeAgo(activity.Timestamp)</small>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">No recent activity</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary text-start" @onclick="@(() => Navigation.NavigateTo("/agents/new", forceLoad: true))">
+                                <i class="bi bi-plus-circle me-2"></i> Create New Agent
+                            </button>
+                            <button class="btn btn-outline-primary text-start" @onclick="@(() => Navigation.NavigateTo("/workflows/builder", forceLoad: true))">
+                                <i class="bi bi-palette me-2"></i> Build Workflow
+                            </button>
+                            <button class="btn btn-outline-primary text-start" @onclick="@(() => Navigation.NavigateTo("/chat"))">
+                                <i class="bi bi-chat-dots me-2"></i> Start Chat
+                            </button>
+                            <button class="btn btn-outline-primary text-start" @onclick="@(() => Navigation.NavigateTo("/agents", forceLoad: true))">
+                                <i class="bi bi-robot me-2"></i> View All Agents
+                            </button>
+                            <hr />
+                            <button class="btn btn-outline-secondary text-start" @onclick="@(() => Navigation.NavigateTo("/settings"))">
+                                <i class="bi bi-gear me-2"></i> Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i> Unable to load dashboard data. Please try refreshing the page.
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardStatsResponse? stats;
+    private List<DashboardActivityResponse> recentActivity = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Load stats and activity in parallel
+            // In WASM: separate HTTP calls
+            // In Server: DbContextFactory handles concurrency
+            var statsTask = DashboardService.GetDashboardStatsAsync();
+            var activityTask = DashboardService.GetRecentActivityAsync(10);
+
+            await Task.WhenAll(statsTask, activityTask);
+
+            stats = await statsTask;
+            recentActivity = (await activityTask).ToList();
+        }
+        catch (Exception ex)
+        {
+            // Log error (in production, use proper logging)
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshDashboard()
+    {
+        await LoadDashboardData();
+    }
+
+    private string GetTimeAgo(DateTime timestamp)
+    {
+        var timeSpan = DateTime.UtcNow - timestamp;
+
+        if (timeSpan.TotalMinutes < 1)
+            return "Just now";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} mins ago";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} hours ago";
+        if (timeSpan.TotalDays < 7)
+            return $"{(int)timeSpan.TotalDays} days ago";
+        
+        return timestamp.ToShortDateString();
+    }
+}
+

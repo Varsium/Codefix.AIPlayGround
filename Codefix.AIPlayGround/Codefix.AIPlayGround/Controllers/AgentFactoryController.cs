@@ -31,9 +31,9 @@ public class AgentFactoryController : ControllerBase
     /// <param name="request">LLM agent creation request</param>
     /// <returns>Created agent details</returns>
     [HttpPost("llm")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<AgentDto>> CreateLLMAgent([FromBody] CreateLLMAgentRequest request)
+    public async Task<ActionResult<AgentResponse>> CreateLLMAgent([FromBody] CreateLLMAgentRequest request)
     {
         try
         {
@@ -45,7 +45,7 @@ public class AgentFactoryController : ControllerBase
                 request.LLMConfiguration
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -70,9 +70,9 @@ public class AgentFactoryController : ControllerBase
     /// Creates a tool-enabled agent
     /// </summary>
     [HttpPost("tool")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<AgentDto>> CreateToolAgent([FromBody] CreateToolAgentRequest request)
+    public async Task<ActionResult<AgentResponse>> CreateToolAgent([FromBody] CreateToolAgentRequest request)
     {
         try
         {
@@ -84,7 +84,7 @@ public class AgentFactoryController : ControllerBase
                 request.Instructions
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -109,8 +109,8 @@ public class AgentFactoryController : ControllerBase
     /// Creates a conditional routing agent
     /// </summary>
     [HttpPost("conditional")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<AgentDto>> CreateConditionalAgent([FromBody] CreateConditionalAgentRequest request)
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<AgentResponse>> CreateConditionalAgent([FromBody] CreateConditionalAgentRequest request)
     {
         try
         {
@@ -120,7 +120,7 @@ public class AgentFactoryController : ControllerBase
                 request.Instructions
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -145,8 +145,8 @@ public class AgentFactoryController : ControllerBase
     /// Creates a parallel execution agent
     /// </summary>
     [HttpPost("parallel")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<AgentDto>> CreateParallelAgent([FromBody] CreateParallelAgentRequest request)
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<AgentResponse>> CreateParallelAgent([FromBody] CreateParallelAgentRequest request)
     {
         try
         {
@@ -155,7 +155,7 @@ public class AgentFactoryController : ControllerBase
                 request.MaxConcurrency
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -180,8 +180,8 @@ public class AgentFactoryController : ControllerBase
     /// Creates a checkpoint-enabled agent
     /// </summary>
     [HttpPost("checkpoint")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<AgentDto>> CreateCheckpointAgent([FromBody] CreateCheckpointAgentRequest request)
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<AgentResponse>> CreateCheckpointAgent([FromBody] CreateCheckpointAgentRequest request)
     {
         try
         {
@@ -190,7 +190,7 @@ public class AgentFactoryController : ControllerBase
                 request.CheckpointConfiguration
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -215,8 +215,8 @@ public class AgentFactoryController : ControllerBase
     /// Creates an MCP (Model Context Protocol) enabled agent
     /// </summary>
     [HttpPost("mcp")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
-    public async Task<ActionResult<AgentDto>> CreateMCPAgent([FromBody] CreateMCPAgentRequest request)
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<AgentResponse>> CreateMCPAgent([FromBody] CreateMCPAgentRequest request)
     {
         try
         {
@@ -226,7 +226,7 @@ public class AgentFactoryController : ControllerBase
                 request.Instructions
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -270,9 +270,9 @@ public class AgentFactoryController : ControllerBase
     /// Creates an agent from a predefined template
     /// </summary>
     [HttpPost("from-template")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AgentDto>> CreateFromTemplate([FromBody] CreateFromTemplateRequest request)
+    public async Task<ActionResult<AgentResponse>> CreateFromTemplate([FromBody] CreateFromTemplateRequest request)
     {
         try
         {
@@ -281,7 +281,7 @@ public class AgentFactoryController : ControllerBase
                 request.Parameters
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -312,7 +312,7 @@ public class AgentFactoryController : ControllerBase
     /// </summary>
     [HttpPost("validate")]
     [ProducesResponseType(typeof(ValidationResult), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ValidationResult>> ValidateConfiguration([FromBody] CreateAgentDto agentDto)
+    public async Task<ActionResult<ValidationResult>> ValidateConfiguration([FromBody] CreateAgentRequest agentDto)
     {
         try
         {
@@ -330,9 +330,9 @@ public class AgentFactoryController : ControllerBase
     /// Clones an existing agent with optional modifications
     /// </summary>
     [HttpPost("clone/{sourceAgentId}")]
-    [ProducesResponseType(typeof(AgentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AgentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AgentDto>> CloneAgent(
+    public async Task<ActionResult<AgentResponse>> CloneAgent(
         string sourceAgentId,
         [FromBody] CloneAgentRequest request)
     {
@@ -344,7 +344,7 @@ public class AgentFactoryController : ControllerBase
                 request.Modifications
             );
 
-            var dto = new AgentDto
+            var dto = new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -376,13 +376,13 @@ public class CreateLLMAgentRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Instructions { get; set; } = string.Empty;
-    public LLMConfigurationDto? LLMConfiguration { get; set; }
+    public LLMConfiguration? LLMConfiguration { get; set; }
 }
 
 public class CreateToolAgentRequest
 {
     public string Name { get; set; } = string.Empty;
-    public List<ToolConfigurationDto> Tools { get; set; } = new();
+    public List<ToolConfiguration> Tools { get; set; } = new();
     public string? Instructions { get; set; }
 }
 
@@ -402,7 +402,7 @@ public class CreateParallelAgentRequest
 public class CreateCheckpointAgentRequest
 {
     public string Name { get; set; } = string.Empty;
-    public CheckpointConfigurationDto? CheckpointConfiguration { get; set; }
+    public CheckpointConfiguration? CheckpointConfiguration { get; set; }
 }
 
 public class CreateMCPAgentRequest

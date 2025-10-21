@@ -1,0 +1,331 @@
+@page "/agents/{agentId}"
+@using Codefix.AIPlayGround.Models.DTOs
+@using Codefix.AIPlayGround.Services
+@inject IAgentApiService AgentService
+@inject NavigationManager Navigation
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [StreamRendering(true)]
+
+<PageTitle>@(agent?.Name ?? "Agent Details") - AI PlayGround</PageTitle>
+
+@if (isLoading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (agent != null)
+{
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/agents"))">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <h2 class="mb-0">@agent.Name</h2>
+                        <span class="badge @GetStatusBadgeClass(agent.Status) fs-6">@agent.Status</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success">
+                            <i class="bi bi-play-fill me-2"></i> Test Agent
+                        </button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-pencil me-2"></i> Edit
+                        </button>
+                        <button class="btn btn-outline-danger" @onclick="DeleteAgent">
+                            <i class="bi bi-trash me-2"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Main Content -->
+            <div class="col-lg-8">
+                <!-- Overview Card -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Description:</strong>
+                            <p class="text-muted mb-0">@(agent.Description ?? "No description available")</p>
+                        </div>
+                        <hr />
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Type:</strong>
+                                <p>@agent.AgentType</p>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Created:</strong>
+                                <p>@agent.CreatedAt.ToShortDateString()</p>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Updated:</strong>
+                                <p>@agent.UpdatedAt.ToShortDateString()</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LLM Configuration -->
+                @if (agent.LLMConfiguration != null)
+                {
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">LLM Configuration</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <strong>Model:</strong>
+                                    <p>@agent.LLMConfiguration.ModelName</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Provider:</strong>
+                                    <p>@agent.LLMConfiguration.Provider</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Temperature:</strong>
+                                    <p>@agent.LLMConfiguration.Temperature</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Max Tokens:</strong>
+                                    <p>@agent.LLMConfiguration.MaxTokens</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Tools -->
+                @if (agent.Tools != null && agent.Tools.Any())
+                {
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Tools</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                @foreach (var tool in agent.Tools)
+                                {
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">@tool.Name</h6>
+                                                <small class="text-muted">@tool.Description</small>
+                                            </div>
+                                            <span class="badge @(tool.IsEnabled ? "bg-success" : "bg-secondary")">
+                                                @(tool.IsEnabled ? "Enabled" : "Disabled")
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Recent Executions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Executions</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (agent.RecentExecutions?.Any() == true)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Started</th>
+                                            <th>Completed</th>
+                                            <th>Status</th>
+                                            <th>Errors</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var execution in agent.RecentExecutions)
+                                        {
+                                            <tr>
+                                                <td>@execution.StartedAt.ToString("g")</td>
+                                                <td>@(execution.CompletedAt?.ToString("g") ?? "N/A")</td>
+                                                <td>
+                                                    <span class="badge @GetExecutionStatusBadgeClass(execution.Status)">
+                                                        @execution.Status
+                                                    </span>
+                                                </td>
+                                                <td>@(execution.Errors?.Count ?? 0)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">No executions yet</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Statistics -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Executions</span>
+                            <strong>@(agent.RecentExecutions?.Count ?? 0)</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Success Rate</span>
+                            <strong>@CalculateSuccessRate()%</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Avg. Duration</span>
+                            <strong>@CalculateAverageDuration()</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Associated Workflows -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Associated Workflows</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (agent.Flows?.Any() == true)
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var flow in agent.Flows)
+                                {
+                                    <button class="list-group-item list-group-item-action" 
+                                           @onclick="@(() => Navigation.NavigateTo($"/workflows/{flow.Id}"))">
+                                        <i class="bi bi-diagram-3 me-2"></i> @flow.Name
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">No workflows</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Tags</h5>
+                    </div>
+                    <div class="card-body">
+                        <span class="badge bg-primary me-1">@agent.AgentType</span>
+                        @if (!string.IsNullOrEmpty(agent.CreatedBy))
+                        {
+                            <span class="badge bg-secondary me-1">@agent.CreatedBy</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i> Agent not found or failed to load.
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string AgentId { get; set; } = string.Empty;
+
+    private AgentDetailResponse? agent;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAgent();
+    }
+
+    private async Task LoadAgent()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            agent = await AgentService.GetAgentAsync(AgentId);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAgent()
+    {
+        if (await AgentService.DeleteAgentAsync(AgentId))
+        {
+            Navigation.NavigateTo("/agents");
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning",
+        "Draft" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private string GetExecutionStatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "bg-success",
+        "Failed" => "bg-danger",
+        "Running" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private int CalculateSuccessRate()
+    {
+        if (agent?.RecentExecutions == null || !agent.RecentExecutions.Any())
+            return 0;
+
+        var successful = agent.RecentExecutions.Count(e => e.Status == "Completed");
+        return (int)((double)successful / agent.RecentExecutions.Count() * 100);
+    }
+
+    private string CalculateAverageDuration()
+    {
+        if (agent?.RecentExecutions == null || !agent.RecentExecutions.Any())
+            return "N/A";
+
+        var durations = agent.RecentExecutions
+            .Where(e => e.CompletedAt.HasValue)
+            .Select(e => (e.CompletedAt!.Value - e.StartedAt).TotalSeconds)
+            .ToList();
+
+        if (!durations.Any())
+            return "N/A";
+
+        var avg = durations.Average();
+        return $"{avg:F1}s";
+    }
+}
+

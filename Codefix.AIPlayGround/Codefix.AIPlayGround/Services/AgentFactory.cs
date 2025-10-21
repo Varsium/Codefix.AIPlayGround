@@ -23,11 +23,11 @@ public class AgentFactory : IAgentFactory
         _templates = InitializeTemplates();
     }
 
-    public async Task<AgentEntity> CreateLLMAgentAsync(string name, string instructions, LLMConfigurationDto? config = null)
+    public async Task<AgentEntity> CreateLLMAgentAsync(string name, string instructions, LLMConfiguration? config = null)
     {
         _logger.LogInformation("Creating LLM Agent: {Name}", name);
 
-        var llmConfig = config ?? new LLMConfigurationDto
+        var llmConfig = config ?? new LLMConfiguration
         {
             ModelName = "gpt-4",
             Provider = "OpenAI",
@@ -42,20 +42,20 @@ public class AgentFactory : IAgentFactory
             AgentType = "LLMAgent",
             Instructions = instructions,
             LLMConfigurationJson = JsonSerializer.Serialize(llmConfig),
-            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfigurationDto>()),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto
+            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate
             {
                 SystemPrompt = "You are a helpful AI assistant.",
                 UserPrompt = "{user_input}",
                 Template = "System: {system_prompt}\nUser: {user_prompt}"
             }),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration
             {
                 EnableMemory = true,
                 MaxMemoryItems = 100,
                 MemoryType = "conversation"
             }),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfigurationDto()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
                 { "CreatedBy", "AgentFactory" },
@@ -71,7 +71,7 @@ public class AgentFactory : IAgentFactory
         return agent;
     }
 
-    public async Task<AgentEntity> CreateToolAgentAsync(string name, List<ToolConfigurationDto> tools, string? instructions = null)
+    public async Task<AgentEntity> CreateToolAgentAsync(string name, List<ToolConfiguration> tools, string? instructions = null)
     {
         _logger.LogInformation("Creating Tool Agent: {Name} with {ToolCount} tools", name, tools.Count);
 
@@ -81,20 +81,20 @@ public class AgentFactory : IAgentFactory
             Description = $"Tool-enabled agent with {tools.Count} tools",
             AgentType = "ToolAgent",
             Instructions = instructions ?? "You are an agent equipped with specialized tools. Use them effectively to accomplish tasks.",
-            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfigurationDto
+            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration
             {
                 ModelName = "gpt-4",
                 Provider = "OpenAI",
                 Temperature = 0.5
             }),
             ToolsConfigurationJson = JsonSerializer.Serialize(tools),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate
             {
                 SystemPrompt = "You have access to the following tools. Use them when needed.",
                 UserPrompt = "{user_input}"
             }),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto()),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfigurationDto()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
                 { "CreatedBy", "AgentFactory" },
@@ -120,11 +120,11 @@ public class AgentFactory : IAgentFactory
             Description = "Conditional routing agent for workflow branching",
             AgentType = "ConditionalAgent",
             Instructions = instructions ?? "Evaluate conditions and route workflows accordingly.",
-            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfigurationDto()),
-            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfigurationDto>()),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto()),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto()),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfigurationDto()),
+            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration()),
+            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
                 { "CreatedBy", "AgentFactory" },
@@ -151,11 +151,11 @@ public class AgentFactory : IAgentFactory
             Description = $"Parallel execution agent (max concurrency: {maxConcurrency})",
             AgentType = "ParallelAgent",
             Instructions = "Execute multiple tasks in parallel for improved performance.",
-            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfigurationDto()),
-            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfigurationDto>()),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto()),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto()),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfigurationDto()),
+            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration()),
+            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
                 { "CreatedBy", "AgentFactory" },
@@ -172,11 +172,11 @@ public class AgentFactory : IAgentFactory
         return agent;
     }
 
-    public async Task<AgentEntity> CreateCheckpointAgentAsync(string name, CheckpointConfigurationDto? config = null)
+    public async Task<AgentEntity> CreateCheckpointAgentAsync(string name, CheckpointConfiguration? config = null)
     {
         _logger.LogInformation("Creating Checkpoint Agent: {Name}", name);
 
-        var checkpointConfig = config ?? new CheckpointConfigurationDto
+        var checkpointConfig = config ?? new CheckpointConfiguration
         {
             EnableCheckpoints = true,
             CheckpointType = "automatic",
@@ -190,10 +190,10 @@ public class AgentFactory : IAgentFactory
             Description = "Agent with checkpoint and recovery capabilities",
             AgentType = "CheckpointAgent",
             Instructions = "Execute tasks with automatic checkpointing for reliability.",
-            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfigurationDto()),
-            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfigurationDto>()),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto()),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto()),
+            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration()),
+            ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
             CheckpointConfigurationJson = JsonSerializer.Serialize(checkpointConfig),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
@@ -214,7 +214,7 @@ public class AgentFactory : IAgentFactory
     {
         _logger.LogInformation("Creating MCP Agent: {Name} with {ServerCount} MCP servers", name, mcpServers.Count);
 
-        var tools = mcpServers.Select(server => new ToolConfigurationDto
+        var tools = mcpServers.Select(server => new ToolConfiguration
         {
             Name = $"MCP_{server}",
             Type = "MCP",
@@ -233,15 +233,15 @@ public class AgentFactory : IAgentFactory
             Description = $"MCP-enabled agent with {mcpServers.Count} servers",
             AgentType = "MCPAgent",
             Instructions = instructions ?? "You are an agent with Model Context Protocol capabilities. Use MCP servers for enhanced functionality.",
-            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfigurationDto
+            LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration
             {
                 ModelName = "gpt-4",
                 Provider = "OpenAI"
             }),
             ToolsConfigurationJson = JsonSerializer.Serialize(tools),
-            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplateDto()),
-            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfigurationDto()),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfigurationDto()),
+            PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
             {
                 { "CreatedBy", "AgentFactory" },
@@ -274,7 +274,7 @@ public class AgentFactory : IAgentFactory
         return await CreateCustomAgentAsync(agentDto);
     }
 
-    public async Task<AgentEntity> CreateCustomAgentAsync(CreateAgentDto agentDto)
+    public async Task<AgentEntity> CreateCustomAgentAsync(CreateAgentRequest agentDto)
     {
         _logger.LogInformation("Creating custom agent: {Name}", agentDto.Name);
 
@@ -284,11 +284,11 @@ public class AgentFactory : IAgentFactory
             Description = agentDto.Description,
             AgentType = agentDto.AgentType,
             Instructions = agentDto.Instructions,
-            LLMConfigurationJson = JsonSerializer.Serialize(agentDto.LLMConfiguration ?? new LLMConfigurationDto()),
-            ToolsConfigurationJson = JsonSerializer.Serialize(agentDto.Tools ?? new List<ToolConfigurationDto>()),
-            PromptTemplateJson = JsonSerializer.Serialize(agentDto.PromptTemplate ?? new PromptTemplateDto()),
-            MemoryConfigurationJson = JsonSerializer.Serialize(agentDto.MemoryConfiguration ?? new MemoryConfigurationDto()),
-            CheckpointConfigurationJson = JsonSerializer.Serialize(agentDto.CheckpointConfiguration ?? new CheckpointConfigurationDto()),
+            LLMConfigurationJson = JsonSerializer.Serialize(agentDto.LLMConfiguration ?? new LLMConfiguration()),
+            ToolsConfigurationJson = JsonSerializer.Serialize(agentDto.Tools ?? new List<ToolConfiguration>()),
+            PromptTemplateJson = JsonSerializer.Serialize(agentDto.PromptTemplate ?? new PromptTemplate()),
+            MemoryConfigurationJson = JsonSerializer.Serialize(agentDto.MemoryConfiguration ?? new MemoryConfiguration()),
+            CheckpointConfigurationJson = JsonSerializer.Serialize(agentDto.CheckpointConfiguration ?? new CheckpointConfiguration()),
             PropertiesJson = JsonSerializer.Serialize(agentDto.Properties ?? new Dictionary<string, object>()),
             CreatedBy = "System"
         };
@@ -304,7 +304,7 @@ public class AgentFactory : IAgentFactory
         return await Task.FromResult(_templates);
     }
 
-    public async Task<ValidationResult> ValidateAgentConfigurationAsync(CreateAgentDto agentDto)
+    public async Task<ValidationResult> ValidateAgentConfigurationAsync(CreateAgentRequest agentDto)
     {
         var result = new ValidationResult { IsValid = true };
 
@@ -419,11 +419,11 @@ public class AgentFactory : IAgentFactory
                         IsRequired = true
                     }
                 },
-                BaseConfiguration = new CreateAgentDto
+                BaseConfiguration = new CreateAgentRequest
                 {
                     AgentType = "LLMAgent",
                     Instructions = "You are a research assistant. Gather, analyze, and synthesize information on the given topic.",
-                    LLMConfiguration = new LLMConfigurationDto
+                    LLMConfiguration = new LLMConfiguration
                     {
                         ModelName = "gpt-4",
                         Temperature = 0.7,
@@ -438,11 +438,11 @@ public class AgentFactory : IAgentFactory
                 AgentType = "ToolAgent",
                 Category = "Development",
                 Tags = new List<string> { "code-review", "development", "quality" },
-                BaseConfiguration = new CreateAgentDto
+                BaseConfiguration = new CreateAgentRequest
                 {
                     AgentType = "ToolAgent",
                     Instructions = "Review code for best practices, potential bugs, and improvements.",
-                    Tools = new List<ToolConfigurationDto>
+                    Tools = new List<ToolConfiguration>
                     {
                         new() { Name = "StaticAnalysis", Type = "Function", Description = "Perform static code analysis" },
                         new() { Name = "SecurityScan", Type = "Function", Description = "Security vulnerability scanning" }
@@ -456,11 +456,11 @@ public class AgentFactory : IAgentFactory
                 AgentType = "LLMAgent",
                 Category = "Analytics",
                 Tags = new List<string> { "data", "analytics", "visualization" },
-                BaseConfiguration = new CreateAgentDto
+                BaseConfiguration = new CreateAgentRequest
                 {
                     AgentType = "LLMAgent",
                     Instructions = "Analyze data, identify patterns, and provide insights.",
-                    LLMConfiguration = new LLMConfigurationDto
+                    LLMConfiguration = new LLMConfiguration
                     {
                         ModelName = "gpt-4",
                         Temperature = 0.3
@@ -474,16 +474,16 @@ public class AgentFactory : IAgentFactory
                 AgentType = "LLMAgent",
                 Category = "Support",
                 Tags = new List<string> { "support", "customer-service", "help-desk" },
-                BaseConfiguration = new CreateAgentDto
+                BaseConfiguration = new CreateAgentRequest
                 {
                     AgentType = "LLMAgent",
                     Instructions = "Provide helpful, friendly, and professional customer support.",
-                    LLMConfiguration = new LLMConfigurationDto
+                    LLMConfiguration = new LLMConfiguration
                     {
                         ModelName = "gpt-4",
                         Temperature = 0.8
                     },
-                    MemoryConfiguration = new MemoryConfigurationDto
+                    MemoryConfiguration = new MemoryConfiguration
                     {
                         EnableMemory = true,
                         MemoryType = "conversation",
@@ -494,7 +494,7 @@ public class AgentFactory : IAgentFactory
         };
     }
 
-    private CreateAgentDto ApplyTemplateParameters(AgentTemplate template, Dictionary<string, object>? parameters)
+    private CreateAgentRequest ApplyTemplateParameters(AgentTemplate template, Dictionary<string, object>? parameters)
     {
         var dto = template.BaseConfiguration;
         

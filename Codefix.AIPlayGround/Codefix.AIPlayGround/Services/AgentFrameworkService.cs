@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Codefix.AIPlayGround.Data;
 using Codefix.AIPlayGround.Models;
+using Codefix.AIPlayGround.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 
 namespace Codefix.AIPlayGround.Services;

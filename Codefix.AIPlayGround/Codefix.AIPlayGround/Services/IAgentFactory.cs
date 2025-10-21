@@ -11,12 +11,12 @@ public interface IAgentFactory
     /// <summary>
     /// Creates an LLM-based agent with specified configuration
     /// </summary>
-    Task<AgentEntity> CreateLLMAgentAsync(string name, string instructions, LLMConfigurationDto? config = null);
+    Task<AgentEntity> CreateLLMAgentAsync(string name, string instructions, LLMConfiguration? config = null);
 
     /// <summary>
     /// Creates a tool-enabled agent with specific tools
     /// </summary>
-    Task<AgentEntity> CreateToolAgentAsync(string name, List<ToolConfigurationDto> tools, string? instructions = null);
+    Task<AgentEntity> CreateToolAgentAsync(string name, List<ToolConfiguration> tools, string? instructions = null);
 
     /// <summary>
     /// Creates a conditional routing agent
@@ -31,7 +31,7 @@ public interface IAgentFactory
     /// <summary>
     /// Creates an agent with checkpoint capabilities
     /// </summary>
-    Task<AgentEntity> CreateCheckpointAgentAsync(string name, CheckpointConfigurationDto? config = null);
+    Task<AgentEntity> CreateCheckpointAgentAsync(string name, CheckpointConfiguration? config = null);
 
     /// <summary>
     /// Creates an MCP (Model Context Protocol) enabled agent
@@ -46,7 +46,7 @@ public interface IAgentFactory
     /// <summary>
     /// Creates a custom agent with full configuration
     /// </summary>
-    Task<AgentEntity> CreateCustomAgentAsync(CreateAgentDto agentDto);
+    Task<AgentEntity> CreateCustomAgentAsync(CreateAgentRequest agentDto);
 
     /// <summary>
     /// Gets available agent templates
@@ -56,7 +56,7 @@ public interface IAgentFactory
     /// <summary>
     /// Validates agent configuration before creation
     /// </summary>
-    Task<ValidationResult> ValidateAgentConfigurationAsync(CreateAgentDto agentDto);
+    Task<ValidationResult> ValidateAgentConfigurationAsync(CreateAgentRequest agentDto);
 
     /// <summary>
     /// Clones an existing agent with modifications
@@ -75,7 +75,7 @@ public class AgentTemplate
     public string AgentType { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public Dictionary<string, TemplateParameter> Parameters { get; set; } = new();
-    public CreateAgentDto BaseConfiguration { get; set; } = new();
+    public CreateAgentRequest BaseConfiguration { get; set; } = new();
     public List<string> Tags { get; set; } = new();
 }
 

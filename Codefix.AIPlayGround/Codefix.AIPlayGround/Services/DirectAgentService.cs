@@ -1,37 +1,36 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using Codefix.AIPlayGround.Data;
 using Codefix.AIPlayGround.Models;
 using Codefix.AIPlayGround.Models.DTOs;
 using Codefix.AIPlayGround.Services;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
-namespace Codefix.AIPlayGround.Controllers;
+namespace Codefix.AIPlayGround.Services;
 
-[ApiController]
-[Route("api/[controller]")]
-public class AgentsController : ControllerBase
+/// <summary>
+/// Direct service implementation for Server-side rendering
+/// Accesses database and services directly without HTTP calls
+/// Uses DbContextFactory for safe parallel operations
+/// </summary>
+public class DirectAgentService : IAgentApiService
 {
-    private readonly ApplicationDbContext _context;
-    private readonly IAgentFrameworkService _agentFrameworkService;
-    private readonly ILogger<AgentsController> _logger;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+    private readonly ILogger<DirectAgentService> _logger;
 
-    public AgentsController(
-        ApplicationDbContext context,
-        IAgentFrameworkService agentFrameworkService,
-        ILogger<AgentsController> logger)
+    public DirectAgentService(
+        IDbContextFactory<ApplicationDbContext> contextFactory,
+        ILogger<DirectAgentService> logger)
     {
-        _context = context;
-        _agentFrameworkService = agentFrameworkService;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<AgentResponse>>> GetAgents([FromQuery] GetAgentsRequest filter)
+    public async Task<IEnumerable<AgentResponse>> GetAgentsAsync(GetAgentsRequest filter)
     {
         try
         {
-            var query = _context.Agents.AsQueryable();
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var query = context.Agents.AsQueryable();
 
             if (!string.IsNullOrEmpty(filter.Name))
                 query = query.Where(a => a.Name.Contains(filter.Name));
@@ -68,28 +67,28 @@ public class AgentsController : ControllerBase
                 })
                 .ToListAsync();
 
-            return Ok(agents);
+            return agents;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving agents");
-            return StatusCode(500, "An error occurred while retrieving agents");
+            return Enumerable.Empty<AgentResponse>();
         }
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<AgentDetailResponse>> GetAgent(string id)
+    public async Task<AgentDetailResponse?> GetAgentAsync(string id)
     {
         try
         {
-            var agent = await _context.Agents
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents
                 .Include(a => a.FlowAgents)
                     .ThenInclude(fa => fa.Flow)
                 .Include(a => a.Executions.OrderByDescending(e => e.StartedAt).Take(10))
                 .FirstOrDefaultAsync(a => a.Id == id);
 
             if (agent == null)
-                return NotFound();
+                return null;
 
             var agentDetail = new AgentDetailResponse
             {
@@ -134,23 +133,20 @@ public class AgentsController : ControllerBase
                 }).ToList()
             };
 
-            return Ok(agentDetail);
+            return agentDetail;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while retrieving the agent");
+            return null;
         }
     }
 
-    [HttpPost]
-    public async Task<ActionResult<AgentResponse>> CreateAgent([FromBody] CreateAgentRequest dto)
+    public async Task<AgentResponse> CreateAgentAsync(CreateAgentRequest dto)
     {
         try
         {
-            if (dto == null)
-                return BadRequest("Agent data is required");
-
+            await using var context = await _contextFactory.CreateDbContextAsync();
             var agent = new AgentEntity
             {
                 Name = dto.Name,
@@ -163,13 +159,13 @@ public class AgentsController : ControllerBase
                 MemoryConfigurationJson = JsonSerializer.Serialize(dto.MemoryConfiguration ?? new MemoryConfiguration()),
                 CheckpointConfigurationJson = JsonSerializer.Serialize(dto.CheckpointConfiguration ?? new CheckpointConfiguration()),
                 PropertiesJson = JsonSerializer.Serialize(dto.Properties ?? new Dictionary<string, object>()),
-                CreatedBy = User.Identity?.Name ?? "System"
+                CreatedBy = "System" // Will be updated with actual user
             };
 
-            _context.Agents.Add(agent);
-            await _context.SaveChangesAsync();
+            context.Agents.Add(agent);
+            await context.SaveChangesAsync();
 
-            var agentDto = new AgentResponse
+            return new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -180,24 +176,22 @@ public class AgentsController : ControllerBase
                 UpdatedAt = agent.UpdatedAt,
                 CreatedBy = agent.CreatedBy
             };
-
-            return CreatedAtAction(nameof(GetAgent), new { id = agent.Id }, agentDto);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating agent");
-            return StatusCode(500, "An error occurred while creating the agent");
+            throw;
         }
     }
 
-    [HttpPut("{id}")]
-    public async Task<ActionResult<AgentResponse>> UpdateAgent(string id, [FromBody] UpdateAgentRequest dto)
+    public async Task<AgentResponse> UpdateAgentAsync(string id, UpdateAgentRequest dto)
     {
         try
         {
-            var agent = await _context.Agents.FindAsync(id);
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents.FindAsync(id);
             if (agent == null)
-                return NotFound();
+                throw new InvalidOperationException($"Agent {id} not found");
 
             if (!string.IsNullOrEmpty(dto.Name))
                 agent.Name = dto.Name;
@@ -228,10 +222,10 @@ public class AgentsController : ControllerBase
 
             agent.UpdatedAt = DateTime.UtcNow;
 
-            _context.Agents.Update(agent);
-            await _context.SaveChangesAsync();
+            context.Agents.Update(agent);
+            await context.SaveChangesAsync();
 
-            var agentDto = new AgentResponse
+            return new AgentResponse
             {
                 Id = agent.Id,
                 Name = agent.Name,
@@ -242,202 +236,91 @@ public class AgentsController : ControllerBase
                 UpdatedAt = agent.UpdatedAt,
                 CreatedBy = agent.CreatedBy
             };
-
-            return Ok(agentDto);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while updating the agent");
+            throw;
         }
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteAgent(string id)
+    public async Task<bool> DeleteAgentAsync(string id)
     {
         try
         {
-            var agent = await _context.Agents.FindAsync(id);
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents.FindAsync(id);
             if (agent == null)
-                return NotFound();
+                return false;
 
-            _context.Agents.Remove(agent);
-            await _context.SaveChangesAsync();
+            context.Agents.Remove(agent);
+            await context.SaveChangesAsync();
 
-            return NoContent();
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while deleting the agent");
+            return false;
         }
     }
 
-    [HttpPost("{id}/deploy")]
-    public async Task<ActionResult<DeploymentResult>> DeployAgent(string id)
+    public async Task<IEnumerable<AgentExecutionResponse>> GetAgentExecutionsAsync(string agentId)
     {
         try
         {
-            var result = await _agentFrameworkService.DeployAgentAsync(id);
-            
-            if (result.IsSuccess)
-            {
-                return Ok(new DeploymentResult
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var executions = await context.AgentExecutions
+                .Where(e => e.AgentId == agentId)
+                .OrderByDescending(e => e.StartedAt)
+                .Take(50)
+                .Select(e => new AgentExecutionResponse
                 {
-                    IsSuccess = true,
-                    Message = result.Message,
-                    Metadata = result.Metadata
-                });
-            }
-            else
-            {
-                return BadRequest(new DeploymentResult
-                {
-                    IsSuccess = false,
-                    Message = result.Message
-                });
-            }
+                    Id = e.Id,
+                    AgentId = e.AgentId,
+                    StartedAt = e.StartedAt,
+                    CompletedAt = e.CompletedAt,
+                    Status = e.Status.ToString(),
+                    InputData = JsonSerializer.Deserialize<Dictionary<string, object>>(e.InputDataJson) ?? new(),
+                    OutputData = JsonSerializer.Deserialize<Dictionary<string, object>>(e.OutputDataJson) ?? new(),
+                    Metrics = JsonSerializer.Deserialize<Dictionary<string, object>>(e.MetricsJson) ?? new(),
+                    Errors = JsonSerializer.Deserialize<List<string>>(e.ErrorsJson) ?? new()
+                })
+                .ToListAsync();
+
+            return executions;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deploying agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while deploying the agent");
+            _logger.LogError(ex, "Error fetching agent executions for {AgentId}", agentId);
+            return Enumerable.Empty<AgentExecutionResponse>();
         }
     }
 
-    [HttpPost("{id}/test")]
-    public async Task<ActionResult<TestResult>> TestAgent(string id, [FromBody] TestAgentRequest input)
+    public async Task<bool> ToggleAgentStatusAsync(string id)
     {
         try
         {
-            if (input == null)
-                return BadRequest("Test input is required");
-
-            var result = await _agentFrameworkService.TestAgentAsync(id, input.Input);
-            
-            if (result.IsSuccess)
-            {
-                var testResult = new TestResult
-                {
-                    IsSuccess = true,
-                    Message = result.Message,
-                    Input = input.Input,
-                    Output = result.Data != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(result.Data.ToString() ?? "{}") ?? new() : new(),
-                    Metrics = result.Metadata
-                };
-                return Ok(testResult);
-            }
-            else
-            {
-                var testResult = new TestResult
-                {
-                    IsSuccess = false,
-                    Message = result.Message,
-                    Input = input.Input,
-                    Errors = result.Errors
-                };
-                return BadRequest(testResult);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error testing agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while testing the agent");
-        }
-    }
-
-    [HttpGet("{id}/status")]
-    public async Task<ActionResult<AgentStatusResponse>> GetAgentStatus(string id)
-    {
-        try
-        {
-            var result = await _agentFrameworkService.GetAgentStatusAsync(id);
-            
-            if (result.IsSuccess)
-            {
-                return Ok(result.Data);
-            }
-            else
-            {
-                return BadRequest(new { Message = result.Message });
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting agent status {AgentId}", id);
-            return StatusCode(500, "An error occurred while getting the agent status");
-        }
-    }
-
-    [HttpPost("{id}/llm-config")]
-    public async Task<ActionResult> UpdateLLMConfiguration(string id, [FromBody] LLMConfiguration config)
-    {
-        try
-        {
-            var agent = await _context.Agents.FindAsync(id);
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents.FindAsync(id);
             if (agent == null)
-                return NotFound();
+                return false;
 
-            agent.LLMConfigurationJson = JsonSerializer.Serialize(config);
+            agent.Status = agent.Status == AgentStatus.Active 
+                ? AgentStatus.Inactive 
+                : AgentStatus.Active;
+            
             agent.UpdatedAt = DateTime.UtcNow;
 
-            _context.Agents.Update(agent);
-            await _context.SaveChangesAsync();
+            context.Agents.Update(agent);
+            await context.SaveChangesAsync();
 
-            return Ok();
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating LLM configuration for agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while updating the LLM configuration");
-        }
-    }
-
-    [HttpPost("{id}/tools")]
-    public async Task<ActionResult> UpdateTools(string id, [FromBody] List<ToolConfiguration> tools)
-    {
-        try
-        {
-            var agent = await _context.Agents.FindAsync(id);
-            if (agent == null)
-                return NotFound();
-
-            agent.ToolsConfigurationJson = JsonSerializer.Serialize(tools);
-            agent.UpdatedAt = DateTime.UtcNow;
-
-            _context.Agents.Update(agent);
-            await _context.SaveChangesAsync();
-
-            return Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating tools for agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while updating the tools");
-        }
-    }
-
-    [HttpPost("{id}/prompt-template")]
-    public async Task<ActionResult> UpdatePromptTemplate(string id, [FromBody] PromptTemplate template)
-    {
-        try
-        {
-            var agent = await _context.Agents.FindAsync(id);
-            if (agent == null)
-                return NotFound();
-
-            agent.PromptTemplateJson = JsonSerializer.Serialize(template);
-            agent.UpdatedAt = DateTime.UtcNow;
-
-            _context.Agents.Update(agent);
-            await _context.SaveChangesAsync();
-
-            return Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating prompt template for agent {AgentId}", id);
-            return StatusCode(500, "An error occurred while updating the prompt template");
+            _logger.LogError(ex, "Error toggling agent status {AgentId}", id);
+            return false;
         }
     }
 }

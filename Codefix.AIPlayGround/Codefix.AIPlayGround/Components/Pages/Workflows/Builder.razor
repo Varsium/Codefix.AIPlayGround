@@ -1,0 +1,1200 @@
+@page "/workflows/builder"
+@page "/workflows/builder/{workflowId}"
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [StreamRendering(true)]
+@implements IAsyncDisposable
+
+<PageTitle>Workflow Builder - AI PlayGround</PageTitle>
+
+<div class="workflow-builder">
+    <!-- Toolbar -->
+    <div class="workflow-toolbar">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/workflows"))">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                <div class="vr"></div>
+                <strong>@(CurrentWorkflow?.Name ?? "New Workflow")</strong>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" title="Undo" disabled>
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+                <button class="btn btn-outline-secondary" title="Redo" disabled>
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <div class="vr"></div>
+                <button class="btn btn-outline-secondary" title="Zoom In" @onclick="ZoomIn">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+                <button class="btn btn-outline-secondary" title="Zoom Out" @onclick="ZoomOut">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <button class="btn btn-outline-secondary" title="Fit" @onclick="ResetZoom">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <div class="vr"></div>
+                <button class="btn btn-outline-danger" @onclick="ClearCanvas">
+                    <i class="bi bi-trash me-2"></i> Clear
+                </button>
+                <button class="btn btn-primary @(hasUnsavedChanges ? "btn-warning" : "")" 
+                       @onclick="SaveWorkflow"
+                       title="Nodes: @(CurrentWorkflow?.Nodes?.Count ?? 0), Connections: @(CurrentWorkflow?.Connections?.Count ?? 0)">
+                    <i class="bi bi-save me-2"></i> Save @(hasUnsavedChanges ? "*" : "")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="workflow-content">
+        <!-- Node Palette -->
+        <div class="node-palette">
+            <h6 class="mb-3">Node Types</h6>
+            @foreach (var nodeType in AvailableNodeTypes)
+            {
+                <div class="palette-item" 
+                     draggable="true"
+                     @ondragstart="@((DragEventArgs e) => OnPaletteDragStart(e, nodeType))"
+                     @ondragend="OnDragEnd">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="@GetNodeIcon(nodeType.Type) fs-5"></i>
+                        <div>
+                            <div class="fw-bold small">@nodeType.Label</div>
+                            <div style="font-size: 11px;" class="text-muted">@nodeType.Description</div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-container">
+            <!-- Connection Status Message -->
+            @if (connectionSource != null)
+            {
+                <div class="alert alert-warning position-absolute top-0 start-50 translate-middle-x mt-3" style="z-index: 1000;">
+                    <i class="bi bi-link me-2"></i> 
+                    <strong>Connection Mode:</strong> Click an INPUT (left) dot on another node to complete the connection.
+                    <button type="button" class="btn-close ms-3" @onclick="CancelConnection"></button>
+                </div>
+            }
+
+            <div class="canvas-area @(isDragOver ? "drag-over" : "")" @ref="canvasRef">
+                @if (isDragOver)
+                {
+                    <div class="drop-indicator">
+                        <i class="bi bi-plus-circle" style="font-size: 48px;"></i>
+                        <div>Drop node here</div>
+                    </div>
+                }
+
+                @foreach (var node in CurrentWorkflow?.Nodes ?? Enumerable.Empty<EnhancedWorkflowNode>())
+                {
+                    <div class="workflow-node @(selectedNode?.Id == node.Id ? "selected" : "")" 
+                         style="left: @(node.X)px; top: @(node.Y)px;"
+                         data-node-id="@node.Id"
+                         id="node-@node.Id"
+                         draggable="false"
+                         @onclick="@(() => SelectNode(node))">
+                        <div class="node-header" data-node-id="@node.Id">
+                            <i class="@GetNodeIcon(node.Type)"></i>
+                            <span>@node.Name</span>
+                            <button class="btn btn-sm btn-link text-danger ms-auto" 
+                                   @onclick="@(() => DeleteNode(node))" 
+                                   @onclick:stopPropagation="true">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div class="node-type">@node.Type</div>
+                        <!-- Connection Points: 2 inputs (left) + 2 outputs (right) -->
+                        <div class="connection-points">
+                            <!-- Left side - Inputs -->
+                            <div class="connection-point input input-1 @(connectionSource != null ? "available" : "")" 
+                                 title="Input 1 - Click to connect here"
+                                 @onclick="@(() => { Console.WriteLine($"🔗 INPUT1 clicked on {node.Id}"); OnConnectionPointClick(node.Id, "input1"); })"
+                                 @onclick:stopPropagation="true"
+                                 @onclick:preventDefault="true"></div>
+                            <div class="connection-point input input-2 @(connectionSource != null ? "available" : "")" 
+                                 title="Input 2 - Click to connect here"
+                                 @onclick="@(() => { Console.WriteLine($"🔗 INPUT2 clicked on {node.Id}"); OnConnectionPointClick(node.Id, "input2"); })"
+                                 @onclick:stopPropagation="true"
+                                 @onclick:preventDefault="true"></div>
+                            
+                            <!-- Right side - Outputs -->
+                            <div class="connection-point output output-1 @(connectionSource?.NodeId == node.Id ? "active" : "")" 
+                                 title="Output 1 - Click to start connection"
+                                 @onclick="@(() => { Console.WriteLine($"🔗 OUTPUT1 clicked on {node.Id}"); OnConnectionPointClick(node.Id, "output1"); })"
+                                 @onclick:stopPropagation="true"
+                                 @onclick:preventDefault="true"></div>
+                            <div class="connection-point output output-2 @(connectionSource?.NodeId == node.Id ? "active" : "")" 
+                                 title="Output 2 - Click to start connection"
+                                 @onclick="@(() => { Console.WriteLine($"🔗 OUTPUT2 clicked on {node.Id}"); OnConnectionPointClick(node.Id, "output2"); })"
+                                 @onclick:stopPropagation="true"
+                                 @onclick:preventDefault="true"></div>
+                        </div>
+                    </div>
+                }
+
+                <svg class="connections-layer">
+                    <defs>
+                        <!-- Enhanced arrow marker with better visibility -->
+                        <marker id="arrowhead" markerWidth="12" markerHeight="10" 
+                                refX="11" refY="5" orient="auto">
+                            <polygon points="0 0, 12 5, 0 10" fill="#0d6efd" />
+                        </marker>
+                        
+                        <!-- Animated flow indicator (moving dots) -->
+                        <marker id="flowDot" markerWidth="8" markerHeight="8" 
+                                refX="4" refY="4">
+                            <circle cx="4" cy="4" r="3" fill="#0d6efd" opacity="0.6" />
+                        </marker>
+                    </defs>
+                    @if (CurrentWorkflow?.Connections != null)
+                    {
+                        var connectionIndex = 0;
+                        @foreach (var connection in CurrentWorkflow.Connections)
+                        {
+                            var path = GetConnectionPath(connection);
+                            if (!string.IsNullOrEmpty(path))
+                            {
+                                var pathId = $"path-{connectionIndex}";
+                                
+                                <!-- Main connection line -->
+                                <path id="@pathId"
+                                      d="@path" 
+                                      stroke="#0d6efd" 
+                                      stroke-width="3" 
+                                      fill="none" 
+                                      marker-end="url(#arrowhead)"
+                                      class="connection-line" />
+                                
+                                <!-- Animated flow indicator -->
+                                <circle r="4" fill="#0d6efd" opacity="0.8" class="flow-indicator">
+                                    <animateMotion dur="3s" repeatCount="indefinite" path="@path" />
+                                </circle>
+                                
+                                <!-- Direction label at midpoint -->
+                                <g class="connection-label">
+                                    @((MarkupString)$"<text><textPath href=\"#{pathId}\" startOffset=\"50%\" text-anchor=\"middle\"><tspan dy=\"-8\" fill=\"#495057\" font-size=\"11\" font-weight=\"600\">→</tspan></textPath></text>")
+                                </g>
+                                
+                                connectionIndex++;
+                            }
+                        }
+                        <!-- Debug: Show connection count -->
+                        @((MarkupString)$"<text x=\"10\" y=\"20\" fill=\"#6c757d\" font-size=\"12\" font-weight=\"600\">Connections: {CurrentWorkflow.Connections.Count}</text>")
+                    }
+                </svg>
+            </div>
+        </div>
+
+        <!-- Properties Panel -->
+        <div class="properties-panel">
+            <h6 class="mb-3">Properties</h6>
+            @if (selectedNode != null)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-control" @bind="selectedNode.Name" @bind:after="MarkUnsavedChanges" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" @bind="selectedNode.Type" @bind:after="OnNodeTypeChanged">
+                        <option value="@AgentType.StartNode.ToString()">Start Node</option>
+                        <option value="@AgentType.EndNode.ToString()">End Node</option>
+                        <option value="@AgentType.LLMAgent.ToString()">LLM Agent</option>
+                        <option value="@AgentType.ToolAgent.ToString()">Tool Agent</option>
+                        <option value="@AgentType.ConditionalAgent.ToString()">Conditional Agent</option>
+                        <option value="@AgentType.ParallelAgent.ToString()">Parallel Agent</option>
+                        <option value="@AgentType.CheckpointAgent.ToString()">Checkpoint Agent</option>
+                        <option value="@AgentType.MCPAgent.ToString()">MCP Agent</option>
+                        <option value="@AgentType.FunctionNode.ToString()">Function Node</option>
+                    </select>
+                    <small class="text-muted">Change the type of this node</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Position</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="number" class="form-control" @bind="selectedNode.X" @bind:after="MarkUnsavedChanges" placeholder="X" />
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control" @bind="selectedNode.Y" @bind:after="MarkUnsavedChanges" placeholder="Y" />
+                        </div>
+                    </div>
+                </div>
+                <hr />
+                <button class="btn btn-outline-danger w-100" @onclick="@(() => DeleteNode(selectedNode))">
+                    <i class="bi bi-trash me-2"></i> Delete Node
+                </button>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i> Select a node to edit properties
+                </div>
+            }
+
+            <!-- Debug: Show Connections List -->
+            <hr class="mt-4" />
+            <h6 class="mb-2">
+                <i class="bi bi-diagram-3 me-2"></i> Connections 
+                <span class="badge bg-primary">@(CurrentWorkflow?.Connections?.Count ?? 0)</span>
+            </h6>
+            @if (CurrentWorkflow?.Connections?.Any() == true)
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var conn in CurrentWorkflow.Connections)
+                    {
+                        var fromNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == conn.FromNodeId);
+                        var toNode = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == conn.ToNodeId);
+                        <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                            <small class="text-truncate">
+                                <strong>@(fromNode?.Name ?? "?")</strong>
+                                <i class="bi bi-arrow-right mx-1"></i>
+                                <strong>@(toNode?.Name ?? "?")</strong>
+                            </small>
+                            <button class="btn btn-sm btn-link text-danger p-0" 
+                                   @onclick="@(() => DeleteConnection(conn))" 
+                                   title="Delete connection">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <small class="text-muted">No connections yet. Click output (right) then input (left) dots to connect nodes.</small>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .workflow-builder {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .workflow-toolbar {
+        background: white;
+        padding: 12px 16px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .workflow-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .node-palette {
+        width: 260px;
+        background: white;
+        border-right: 1px solid #dee2e6;
+        padding: 16px;
+        overflow-y: auto;
+    }
+
+    .palette-item {
+        padding: 12px;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        cursor: grab;
+        margin-bottom: 8px;
+        transition: all 0.2s;
+        background: white;
+    }
+
+    .palette-item:hover {
+        border-color: #0d6efd;
+        background: #e7f1ff;
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .palette-item:active {
+        cursor: grabbing;
+    }
+
+    .canvas-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #f8f9fa;
+    }
+
+    .canvas-area {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background-image: radial-gradient(circle, #dee2e6 1px, transparent 1px);
+        background-size: 20px 20px;
+        transition: background-color 0.2s;
+    }
+
+    .canvas-area.drag-over {
+        background-color: #e7f1ff;
+    }
+
+    .drop-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #0d6efd;
+        pointer-events: none;
+    }
+
+    .workflow-node {
+        position: absolute;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+        min-width: 180px;
+        cursor: move;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .workflow-node:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .workflow-node.selected {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .node-type {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .connection-points {
+        position: relative;
+        height: 0;
+    }
+
+    .connection-point {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 3px solid white;
+        cursor: pointer;
+        box-shadow: 0 0 0 2px #0d6efd, 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s;
+        z-index: 10;
+    }
+
+    .connection-point.input {
+        left: -8px;
+        top: 20px;
+    }
+
+    .connection-point.output {
+        right: -8px;
+        top: 20px;
+    }
+
+    .connection-point:hover {
+        transform: scale(1.5);
+        box-shadow: 0 0 0 3px #0d6efd, 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .connection-point.active {
+        background: #ffc107;
+        box-shadow: 0 0 0 4px #ffc107, 0 4px 8px rgba(255,193,7,0.5);
+        animation: pulse 1s infinite;
+        transform: scale(1.3);
+    }
+
+    .connection-point.available {
+        background: #28a745;
+        box-shadow: 0 0 0 3px #28a745, 0 4px 8px rgba(40,167,69,0.5);
+        transform: scale(1.2);
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.2);
+        }
+    }
+
+    .workflow-node.dragging {
+        opacity: 0.7;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        z-index: 1000;
+    }
+
+    .connections-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .connection-line {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        transition: all 0.2s;
+    }
+
+    .connection-line:hover {
+        stroke-width: 5;
+        stroke: #0056b3;
+        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+    }
+
+    .flow-indicator {
+        pointer-events: none;
+    }
+
+    .connection-label {
+        pointer-events: none;
+        user-select: none;
+    }
+
+    .properties-panel {
+        width: 300px;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        padding: 16px;
+        overflow-y: auto;
+    }
+</style>
+
+@code {
+    [Parameter] public string? WorkflowId { get; set; }
+    
+    private Models.WorkflowDefinition? CurrentWorkflow;
+    private EnhancedWorkflowNode? selectedNode;
+    private bool isDragOver = false;
+    private bool hasUnsavedChanges = false;
+    private ElementReference canvasRef;
+    private DotNetObjectReference<Builder>? dotNetRef;
+    private bool isInitialized = false;
+    private ConnectionPoint? connectionSource = null;
+
+    private class ConnectionPoint
+    {
+        public string NodeId { get; set; } = "";
+        public string Type { get; set; } = ""; // "input1", "input2", "output1", "output2"
+    }
+
+    private List<AgentTypeDefinition> AvailableNodeTypes = new()
+    {
+        new() { Type = AgentType.StartNode, Label = "Start Node", Description = "Entry point" },
+        new() { Type = AgentType.EndNode, Label = "End Node", Description = "Exit point" },
+        new() { Type = AgentType.LLMAgent, Label = "LLM Agent", Description = "Language model" },
+        new() { Type = AgentType.ToolAgent, Label = "Tool Agent", Description = "Execute tools" },
+        new() { Type = AgentType.ConditionalAgent, Label = "Conditional", Description = "Branch logic" },
+        new() { Type = AgentType.ParallelAgent, Label = "Parallel", Description = "Parallel execution" },
+        new() { Type = AgentType.CheckpointAgent, Label = "Checkpoint", Description = "Save state" },
+        new() { Type = AgentType.MCPAgent, Label = "MCP Agent", Description = "MCP protocol" },
+        new() { Type = AgentType.FunctionNode, Label = "Function", Description = "Custom function" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Prevent double initialization
+        if (isInitialized) return;
+        isInitialized = true;
+
+        if (!string.IsNullOrEmpty(WorkflowId))
+        {
+            // Only load existing workflow if ID is provided
+            CurrentWorkflow = await WorkflowService.GetWorkflowAsync(WorkflowId);
+        }
+        else
+        {
+            // Initialize empty workflow in memory only - don't create in backend yet
+            CurrentWorkflow = new Models.WorkflowDefinition
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "New Workflow",
+                Nodes = new List<EnhancedWorkflowNode>(),
+                Connections = new List<EnhancedWorkflowConnection>()
+            };
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("workflowCanvas.initializeModernDragDrop", canvasRef, dotNetRef);
+                Console.WriteLine("✅ Drag and drop initialized");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error initializing drag and drop: {ex.Message}");
+            }
+        }
+        
+        // Enable node dragging and connections after each render (when nodes change)
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("workflowCanvas.enableNodeDragging");
+            Console.WriteLine("✅ Node dragging enabled");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error enabling node dragging: {ex.Message}");
+        }
+    }
+
+    private async Task OnPaletteDragStart(DragEventArgs e, AgentTypeDefinition nodeType)
+    {
+        e.DataTransfer.EffectAllowed = "copy";
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("workflowCanvas.setDraggedNodeType", nodeType.Type.ToString());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error setting dragged node type: {ex.Message}");
+        }
+    }
+
+    private void OnDragEnd()
+    {
+        isDragOver = false;
+    }
+
+    [JSInvokable("OnDragOver")]
+    public void OnDragOver()
+    {
+        isDragOver = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable("OnDragLeave")]
+    public void OnDragLeave()
+    {
+        isDragOver = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable("OnDrop")]
+    public async Task OnDrop(string nodeTypeString, double x, double y)
+    {
+        isDragOver = false;
+        
+        if (Enum.TryParse<AgentType>(nodeTypeString, out var nodeType) && CurrentWorkflow != null)
+        {
+            // Add node to local state only - don't call backend until Save
+            var newNode = new EnhancedWorkflowNode
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = $"{nodeType} Node",
+                Type = nodeType.ToString(),
+                X = x,
+                Y = y
+            };
+
+            CurrentWorkflow.Nodes.Add(newNode);
+            hasUnsavedChanges = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable("OnNodeMoved")]
+    public void OnNodeMoved(string nodeId, double x, double y)
+    {
+        if (CurrentWorkflow == null) return;
+
+        var node = CurrentWorkflow.Nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node != null)
+        {
+            node.X = x;
+            node.Y = y;
+            hasUnsavedChanges = true;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable("OnCreateConnection")]
+    public void OnCreateConnection(string fromNodeId, string toNodeId)
+    {
+        if (CurrentWorkflow == null) return;
+
+        // Check if connection already exists
+        var exists = CurrentWorkflow.Connections.Any(c => 
+            c.FromNodeId == fromNodeId && c.ToNodeId == toNodeId);
+
+        if (!exists)
+        {
+            var newConnection = new EnhancedWorkflowConnection
+            {
+                Id = Guid.NewGuid().ToString(),
+                FromNodeId = fromNodeId,
+                ToNodeId = toNodeId
+            };
+
+            CurrentWorkflow.Connections.Add(newConnection);
+            hasUnsavedChanges = true;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnConnectionPointClick(string nodeId, string pointType)
+    {
+        Console.WriteLine($"🔗 Connection point clicked: Node={nodeId}, Type={pointType}");
+
+        // Normalize point type to check if it's input or output
+        bool isOutput = pointType.StartsWith("output", StringComparison.OrdinalIgnoreCase);
+        bool isInput = pointType.StartsWith("input", StringComparison.OrdinalIgnoreCase);
+
+        if (connectionSource == null)
+        {
+            // Start connection from any point (input or output)
+            Console.WriteLine($"✅ Starting connection from {(isOutput ? "OUTPUT" : "INPUT")} point: {pointType} on node {nodeId}");
+            connectionSource = new ConnectionPoint { NodeId = nodeId, Type = pointType };
+            StateHasChanged();
+        }
+        else
+        {
+            // Check if trying to connect to itself
+            if (connectionSource.NodeId == nodeId)
+            {
+                Console.WriteLine("❌ Cannot connect node to itself!");
+                connectionSource = null;
+                StateHasChanged();
+                return;
+            }
+
+            // Determine which is source (output) and which is target (input)
+            bool sourceIsOutput = connectionSource.Type.StartsWith("output", StringComparison.OrdinalIgnoreCase);
+            bool sourceIsInput = connectionSource.Type.StartsWith("input", StringComparison.OrdinalIgnoreCase);
+
+            string fromNodeId, toNodeId, fromPort, toPort;
+
+            if (sourceIsOutput && isInput)
+            {
+                // Normal: output -> input
+                fromNodeId = connectionSource.NodeId;
+                toNodeId = nodeId;
+                fromPort = connectionSource.Type;
+                toPort = pointType;
+            }
+            else if (sourceIsInput && isOutput)
+            {
+                // Reverse: input -> output, flip them to output -> input
+                fromNodeId = nodeId;
+                toNodeId = connectionSource.NodeId;
+                fromPort = pointType;
+                toPort = connectionSource.Type;
+            }
+            else if ((sourceIsOutput && isOutput) || (sourceIsInput && isInput))
+            {
+                // Clicked same type twice - switch to new point
+                Console.WriteLine($"🔄 Switching connection point to: {pointType} on node {nodeId}");
+                connectionSource = new ConnectionPoint { NodeId = nodeId, Type = pointType };
+                StateHasChanged();
+                return;
+            }
+            else
+            {
+                // Shouldn't happen, but handle gracefully
+                Console.WriteLine("❌ Invalid connection combination");
+                connectionSource = null;
+                StateHasChanged();
+                return;
+            }
+
+            Console.WriteLine($"✅ Creating connection: {fromNodeId} ({fromPort}) -> {toNodeId} ({toPort})");
+            
+            // Check if connection already exists
+            var exists = CurrentWorkflow!.Connections.Any(c => 
+                c.FromNodeId == fromNodeId && 
+                c.ToNodeId == toNodeId &&
+                c.FromPort == fromPort &&
+                c.ToPort == toPort);
+
+            if (!exists)
+            {
+                var newConnection = new EnhancedWorkflowConnection
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    FromNodeId = fromNodeId,
+                    ToNodeId = toNodeId,
+                    FromPort = fromPort,
+                    ToPort = toPort
+                };
+
+                CurrentWorkflow.Connections.Add(newConnection);
+                hasUnsavedChanges = true;
+                Console.WriteLine($"🎉 Connection created! Total connections: {CurrentWorkflow.Connections.Count}");
+            }
+            else
+            {
+                Console.WriteLine("⚠️ Connection already exists between these exact ports");
+            }
+            
+            // Reset connection mode
+            connectionSource = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelConnection()
+    {
+        Console.WriteLine("Connection mode cancelled by user");
+        connectionSource = null;
+        StateHasChanged();
+    }
+
+    private void DeleteConnection(EnhancedWorkflowConnection connection)
+    {
+        if (CurrentWorkflow != null)
+        {
+            CurrentWorkflow.Connections.Remove(connection);
+            hasUnsavedChanges = true;
+            Console.WriteLine($"Connection deleted. Remaining: {CurrentWorkflow.Connections.Count}");
+            StateHasChanged();
+        }
+    }
+
+    private void SelectNode(EnhancedWorkflowNode node)
+    {
+        selectedNode = node;
+        StateHasChanged();
+    }
+
+    private void MarkUnsavedChanges()
+    {
+        hasUnsavedChanges = true;
+        StateHasChanged();
+    }
+
+    private void OnNodeTypeChanged()
+    {
+        hasUnsavedChanges = true;
+        StateHasChanged();
+    }
+
+    private void DeleteNode(EnhancedWorkflowNode node)
+    {
+        if (CurrentWorkflow != null)
+        {
+            CurrentWorkflow.Nodes.Remove(node);
+            // Also remove any connections to/from this node
+            CurrentWorkflow.Connections.RemoveAll(c => 
+                c.FromNodeId == node.Id || c.ToNodeId == node.Id);
+            
+            if (selectedNode?.Id == node.Id)
+            {
+                selectedNode = null;
+            }
+            // Mark as having unsaved changes
+            hasUnsavedChanges = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveWorkflow()
+    {
+        if (CurrentWorkflow == null) return;
+
+        try
+        {
+            if (string.IsNullOrEmpty(WorkflowId))
+            {
+                // First time save - create new workflow in backend
+                var created = await WorkflowService.CreateWorkflowAsync(CurrentWorkflow.Name);
+                WorkflowId = created.Id;
+                CurrentWorkflow.Id = created.Id;
+            }
+            
+            // Update the workflow with all current nodes and connections
+            await WorkflowService.UpdateWorkflowAsync(CurrentWorkflow);
+            
+            // Clear unsaved changes flag
+            hasUnsavedChanges = false;
+            
+            // Show success feedback
+            Console.WriteLine("Workflow saved successfully!");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving workflow: {ex.Message}");
+            // Could show error message to user
+        }
+    }
+
+    private void ClearCanvas()
+    {
+        if (CurrentWorkflow != null)
+        {
+            CurrentWorkflow.Nodes.Clear();
+            CurrentWorkflow.Connections.Clear();
+            selectedNode = null;
+            hasUnsavedChanges = true;
+            // Don't save to backend automatically - user can click Save if they want
+            StateHasChanged();
+        }
+    }
+
+    private void ZoomIn() { }
+    private void ZoomOut() { }
+    private void ResetZoom() { }
+
+    private string GetNodeIcon(AgentType nodeType) => nodeType switch
+    {
+        AgentType.StartNode => "bi-play-circle",
+        AgentType.EndNode => "bi-stop-circle",
+        AgentType.LLMAgent => "bi-robot",
+        AgentType.ToolAgent => "bi-wrench",
+        AgentType.ConditionalAgent => "bi-diagram-2",
+        AgentType.ParallelAgent => "bi-arrow-down-up",
+        AgentType.CheckpointAgent => "bi-bookmark",
+        AgentType.MCPAgent => "bi-link-45deg",
+        AgentType.FunctionNode => "bi-code-square",
+        _ => "bi-circle"
+    };
+
+    private string GetNodeIcon(string nodeType)
+    {
+        if (Enum.TryParse<AgentType>(nodeType, out var agentType))
+        {
+            return GetNodeIcon(agentType);
+        }
+        return "bi-circle";
+    }
+
+    private string GetConnectionPath(EnhancedWorkflowConnection connection)
+    {
+        var fromNode = CurrentWorkflow?.Nodes.FirstOrDefault(n => n.Id == connection.FromNodeId);
+        var toNode = CurrentWorkflow?.Nodes.FirstOrDefault(n => n.Id == connection.ToNodeId);
+        
+        if (fromNode == null || toNode == null)
+        {
+            Console.WriteLine($"⚠️ Connection path: Missing node. From={fromNode != null}, To={toNode != null}");
+            return string.Empty;
+        }
+        
+        // Simple approach: just use node positions
+        var nodeWidth = 180;
+        var nodeHeight = 80;
+        
+        // Calculate exact connection points
+        var startX = fromNode.X + nodeWidth; // Right edge of source node
+        var startY = fromNode.Y + GetPointYOffset(connection.FromPort, nodeHeight);
+        var endX = toNode.X; // Left edge of target node
+        var endY = toNode.Y + GetPointYOffset(connection.ToPort, nodeHeight);
+        
+        // Simple straight line from A to B
+        var path = $"M {startX} {startY} L {endX} {endY}";
+        
+        Console.WriteLine($"🔗 Simple line: {connection.FromNodeId} {connection.FromPort} -> {connection.ToNodeId} {connection.ToPort}");
+        Console.WriteLine($"   Start: ({startX}, {startY}) -> End: ({endX}, {endY})");
+        
+        return path;
+    }
+    
+    private double GetPointYOffset(string pointType, double nodeHeight)
+    {
+        // Calculate Y offset based on point type
+        return pointType switch
+        {
+            "output1" or "input1" => nodeHeight * 0.3, // 30% from top
+            "output2" or "input2" => nodeHeight * 0.7, // 70% from top
+            _ => nodeHeight * 0.5 // Default to middle
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dotNetRef != null)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("workflowCanvas.cleanup");
+                dotNetRef.Dispose();
+            }
+            catch { }
+        }
+    }
+}
+
+<style>
+    .workflow-builder {
+        display: flex;
+        height: 100vh;
+        background: #f8f9fa;
+    }
+
+    .palette {
+        width: 250px;
+        background: white;
+        border-right: 1px solid #dee2e6;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .palette-item {
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        cursor: grab;
+        transition: all 0.2s;
+        user-select: none;
+    }
+
+    .palette-item:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .palette-item:active {
+        cursor: grabbing;
+    }
+
+    .canvas-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .workflow-canvas {
+        width: 100%;
+        height: 100%;
+        background: 
+            radial-gradient(circle, #dee2e6 1px, transparent 1px);
+        background-size: 20px 20px;
+        position: relative;
+    }
+
+    .workflow-node {
+        position: absolute;
+        width: 180px;
+        min-height: 80px;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        cursor: move;
+        transition: all 0.2s;
+        z-index: 5;
+    }
+
+    .workflow-node:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+
+    .workflow-node.selected {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    }
+
+    .workflow-node.dragging {
+        opacity: 0.8;
+        transform: rotate(2deg);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        z-index: 1000;
+    }
+
+    .node-header {
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 0.375rem 0.375rem 0 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        cursor: move;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+    }
+
+    .node-type {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+        background: #f8f9fa;
+    }
+
+    .connection-points {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .connection-point {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: #0d6efd;
+        border: 3px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        pointer-events: all;
+        transition: all 0.2s;
+        z-index: 100;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    /* Input points - Left side, middle of edges */
+    .connection-point.input {
+        left: -8px;
+        background: #28a745;
+    }
+
+    .connection-point.input-1 {
+        top: 30%;
+    }
+
+    .connection-point.input-2 {
+        top: 70%;
+    }
+
+    /* Output points - Right side, middle of edges */
+    .connection-point.output {
+        right: -8px;
+        background: #0d6efd;
+    }
+
+    .connection-point.output-1 {
+        top: 30%;
+    }
+
+    .connection-point.output-2 {
+        top: 70%;
+    }
+
+    .connection-point:hover {
+        transform: scale(1.5);
+        box-shadow: 0 0 12px rgba(0,0,0,0.5);
+        z-index: 20;
+    }
+
+    .connection-point.available {
+        background: #ffc107;
+        animation: pulse 1s infinite;
+        box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
+    }
+
+    .connection-point.active {
+        background: #dc3545;
+        animation: pulse 0.5s infinite;
+        box-shadow: 0 0 8px rgba(220, 53, 69, 0.6);
+    }
+
+    /* Debug: Make connection points more visible */
+    .connection-point {
+        border: 3px solid white;
+        box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    .connections-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .connection-line {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        transition: all 0.2s;
+    }
+
+    .connection-line:hover {
+        stroke-width: 5;
+        stroke: #0056b3;
+        filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+    }
+
+    .flow-indicator {
+        pointer-events: none;
+    }
+
+    .connection-label {
+        pointer-events: none;
+        user-select: none;
+    }
+
+    .properties-panel {
+        width: 300px;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .drag-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(13, 110, 253, 0.1);
+        border: 2px dashed #0d6efd;
+        pointer-events: none;
+        z-index: 1000;
+    }
+
+    .connection-mode {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: #ffc107;
+        color: #000;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+        z-index: 100;
+    }
+</style>
+

@@ -1,0 +1,93 @@
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
+<div class="render-mode-indicator position-fixed bottom-0 end-0 m-3 p-2 rounded shadow-sm" 
+     style="background: @BackgroundColor; color: white; font-size: 12px; z-index: 9999; font-family: monospace;">
+    <i class="bi @IconClass me-1"></i>
+    <strong>@ModeName</strong>
+    @if (!string.IsNullOrEmpty(Details))
+    {
+        <div style="font-size: 10px; opacity: 0.8;">@Details</div>
+    }
+</div>
+
+@code {
+    private string ModeName = "Detecting...";
+    private string IconClass = "bi-question-circle";
+    private string BackgroundColor = "#6c757d";
+    private string Details = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await DetectRenderMode();
+        }
+    }
+
+    private async Task DetectRenderMode()
+    {
+        try
+        {
+            // Check if we're running in WASM
+            var isWasm = await JSRuntime.InvokeAsync<bool>("eval", 
+                "typeof window !== 'undefined' && typeof WebAssembly !== 'undefined' && window.location.search.includes('') || true");
+
+            // More reliable: Check if Blazor.start was called with WebAssembly
+            var runtime = await JSRuntime.InvokeAsync<string>("eval",
+                @"(function() {
+                    if (typeof Blazor !== 'undefined') {
+                        if (Blazor._internal && Blazor._internal.navigationManager) {
+                            var baseUri = Blazor._internal.navigationManager.getBaseURI();
+                            // Check if running in WebAssembly
+                            if (typeof WebAssembly !== 'undefined' && typeof window.Module !== 'undefined') {
+                                return 'WASM';
+                            }
+                        }
+                        // Check circuit connection (SignalR = Server mode)
+                        if (typeof Blazor.circuitHandler !== 'undefined' || 
+                            (window.location.href.includes('_blazor') && !window.location.href.includes('/_framework/'))) {
+                            return 'Server';
+                        }
+                        // Default to WASM for Auto mode after hydration
+                        return 'WASM';
+                    }
+                    return 'Unknown';
+                })()");
+
+            if (runtime == "WASM")
+            {
+                ModeName = "WebAssembly";
+                IconClass = "bi-lightning-fill";
+                BackgroundColor = "#0d6efd"; // Blue
+                Details = "Client-side";
+            }
+            else if (runtime == "Server")
+            {
+                ModeName = "Server";
+                IconClass = "bi-cloud-fill";
+                BackgroundColor = "#198754"; // Green
+                Details = "SignalR";
+            }
+            else
+            {
+                ModeName = "Auto/Hybrid";
+                IconClass = "bi-shuffle";
+                BackgroundColor = "#6610f2"; // Purple
+                Details = "Adaptive";
+            }
+
+            StateHasChanged();
+        }
+        catch
+        {
+            // Fallback: Assume server if JS fails
+            ModeName = "Server (Fallback)";
+            IconClass = "bi-cloud";
+            BackgroundColor = "#fd7e14"; // Orange
+            StateHasChanged();
+        }
+    }
+}
+
