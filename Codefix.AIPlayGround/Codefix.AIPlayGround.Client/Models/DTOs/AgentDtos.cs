@@ -14,6 +14,18 @@ public class AgentResponse
     public string CreatedBy { get; set; } = string.Empty;
 }
 
+public class WorkflowResponse
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+}
+
 public class AgentDetailResponse : AgentResponse
 {
     public string Instructions { get; set; } = string.Empty;
@@ -23,7 +35,7 @@ public class AgentDetailResponse : AgentResponse
     public MemoryConfiguration? MemoryConfiguration { get; set; }
     public CheckpointConfiguration? CheckpointConfiguration { get; set; }
     public Dictionary<string, object> Properties { get; set; } = new();
-    public List<FlowResponse> Flows { get; set; } = new();
+    public List<WorkflowResponse> Workflows { get; set; } = new();
     public List<AgentExecutionResponse> RecentExecutions { get; set; } = new();
 }
 
@@ -60,6 +72,12 @@ public class UpdateAgentRequest
     public string? Description { get; set; }
     
     public string? Instructions { get; set; }
+    
+    /// <summary>
+    /// Status: Active, Inactive, Draft
+    /// </summary>
+    public string? Status { get; set; }
+    
     public LLMConfiguration? LLMConfiguration { get; set; }
     public List<ToolConfiguration>? Tools { get; set; }
     public PromptTemplate? PromptTemplate { get; set; }

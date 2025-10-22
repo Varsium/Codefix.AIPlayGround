@@ -1,0 +1,534 @@
+@page "/agents/{agentId}/edit"
+@using Codefix.AIPlayGround.Models.DTOs
+@using Codefix.AIPlayGround.Services
+@inject IAgentApiService AgentService
+@inject NavigationManager Navigation
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [StreamRendering(true)]
+
+<PageTitle>Edit Agent - AI PlayGround</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo($"/agents/{AgentId}", forceLoad: true))">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <h2 class="mb-0">Edit Agent</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading agent...</span>
+            </div>
+        </div>
+    }
+    else if (agent != null && updateRequest != null)
+    {
+        @if (isSaving)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Saving changes...</span>
+                </div>
+                <p class="mt-3 text-muted">Updating agent...</p>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Agent Configuration</h5>
+                            <span class="badge @GetStatusBadgeClass(agent.Status)">@agent.Status</span>
+                        </div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    @errorMessage
+                                    <button type="button" class="btn-close" @onclick="@(() => errorMessage = "")"></button>
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(successMessage))
+                            {
+                                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    @successMessage
+                                    <button type="button" class="btn-close" @onclick="@(() => successMessage = "")"></button>
+                                </div>
+                            }
+
+                            <EditForm Model="@updateRequest" OnValidSubmit="UpdateAgent">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="text-danger" />
+
+                                <!-- Status Selection -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Status</label>
+                                    <InputSelect class="form-select" @bind-Value="selectedStatus" style="width: 200px;">
+                                        <option value="Active">🟢 Active</option>
+                                        <option value="Inactive">🟡 Inactive</option>
+                                        <option value="Draft">⚫ Draft</option>
+                                    </InputSelect>
+                                </div>
+
+                                <!-- Basic Information -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Agent Name</label>
+                                    <InputText class="form-control" @bind-Value="updateRequest.Name" placeholder="Enter agent name" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Description</label>
+                                    <InputTextArea class="form-control" @bind-Value="updateRequest.Description" rows="3" placeholder="Describe what this agent does" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Instructions</label>
+                                    <InputTextArea class="form-control" @bind-Value="updateRequest.Instructions" rows="5" placeholder="Provide system instructions for the agent" />
+                                </div>
+
+                                <!-- LLM Configuration -->
+                                @if (llmConfig != null)
+                                {
+                                    <hr class="my-4" />
+                                    <h5 class="mb-3">LLM Configuration</h5>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Model</label>
+                                            <InputText class="form-control" @bind-Value="llmConfig.ModelName" placeholder="e.g., gpt-4" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Provider</label>
+                                            <InputText class="form-control" @bind-Value="llmConfig.Provider" placeholder="e.g., OpenAI" />
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Temperature</label>
+                                            <InputNumber class="form-control" @bind-Value="llmConfig.Temperature" step="0.1" />
+                                            <small class="text-muted">Current: @llmConfig.Temperature.ToString("F1")</small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Max Tokens</label>
+                                            <InputNumber class="form-control" @bind-Value="llmConfig.MaxTokens" />
+                                            <small class="text-muted">Current: @llmConfig.MaxTokens</small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Top P</label>
+                                            <InputNumber class="form-control" @bind-Value="llmConfig.TopP" step="0.1" />
+                                            <small class="text-muted">Current: @llmConfig.TopP.ToString("F1")</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Advanced LLM Settings -->
+                                    <div class="mb-3">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => showAdvancedLLM = !showAdvancedLLM">
+                                            <i class="bi bi-gear me-2"></i> @(showAdvancedLLM ? "Hide" : "Show") Advanced Settings
+                                        </button>
+                                    </div>
+
+                                    @if (showAdvancedLLM)
+                                    {
+                                        <div class="mb-3">
+                                            <label class="form-label">API Endpoint (Optional)</label>
+                                            <InputText class="form-control" @bind-Value="llmConfig.Endpoint" placeholder="https://api.openai.com/v1" />
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">API Key (Optional - for testing)</label>
+                                            <InputText class="form-control" type="password" @bind-Value="llmConfig.ApiKey" placeholder="sk-..." />
+                                            <small class="text-muted">Leave empty to use system default</small>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Frequency Penalty</label>
+                                                <InputNumber class="form-control" @bind-Value="llmConfig.FrequencyPenalty" step="0.1" />
+                                                <small class="text-muted">Reduce repetition (-2.0 to 2.0)</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Presence Penalty</label>
+                                                <InputNumber class="form-control" @bind-Value="llmConfig.PresencePenalty" step="0.1" />
+                                                <small class="text-muted">Increase topic diversity (-2.0 to 2.0)</small>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+
+                                <!-- Memory Configuration -->
+                                @if (memoryConfig != null)
+                                {
+                                    <hr class="my-4" />
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h5 class="mb-0">
+                                            <i class="bi bi-database me-2"></i> Memory Configuration
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-secondary ms-3" type="button" @onclick="() => showMemory = !showMemory">
+                                            <i class="bi bi-chevron-@(showMemory ? "up" : "down") me-1"></i> @(showMemory ? "Hide" : "Show")
+                                        </button>
+                                    </div>
+
+                                    @if (showMemory)
+                                    {
+                                        <div class="mb-3 form-check">
+                                            <InputCheckbox class="form-check-input" id="enableMemory" @bind-Value="memoryConfig.EnableMemory" />
+                                            <label class="form-check-label" for="enableMemory">
+                                                Enable Memory
+                                            </label>
+                                        </div>
+
+                                        @if (memoryConfig.EnableMemory)
+                                        {
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Max Memory Items</label>
+                                                    <InputNumber class="form-control" @bind-Value="memoryConfig.MaxMemoryItems" />
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Memory Type</label>
+                                                    <InputSelect class="form-select" @bind-Value="memoryConfig.MemoryType">
+                                                        <option value="conversation">Conversation</option>
+                                                        <option value="episodic">Episodic</option>
+                                                        <option value="semantic">Semantic</option>
+                                                    </InputSelect>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Relevance Threshold: @memoryConfig.RelevanceThreshold.ToString("F1")</label>
+                                                <input type="range" class="form-range" min="0" max="1" step="0.1" @bind="memoryConfig.RelevanceThreshold" @bind:event="oninput" />
+                                                <small class="text-muted">Similarity threshold for memory retrieval</small>
+                                            </div>
+                                        }
+                                    }
+                                }
+
+                                <!-- Checkpoint Configuration -->
+                                @if (checkpointConfig != null)
+                                {
+                                    <hr class="my-4" />
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h5 class="mb-0">
+                                            <i class="bi bi-bookmark me-2"></i> Checkpoint Configuration
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-secondary ms-3" type="button" @onclick="() => showCheckpoint = !showCheckpoint">
+                                            <i class="bi bi-chevron-@(showCheckpoint ? "up" : "down") me-1"></i> @(showCheckpoint ? "Hide" : "Show")
+                                        </button>
+                                    </div>
+
+                                    @if (showCheckpoint)
+                                    {
+                                        <div class="mb-3 form-check">
+                                            <InputCheckbox class="form-check-input" id="enableCheckpoints" @bind-Value="checkpointConfig.EnableCheckpoints" />
+                                            <label class="form-check-label" for="enableCheckpoints">
+                                                Enable Checkpoints
+                                            </label>
+                                        </div>
+
+                                        @if (checkpointConfig.EnableCheckpoints)
+                                        {
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Checkpoint Type</label>
+                                                    <InputSelect class="form-select" @bind-Value="checkpointConfig.CheckpointType">
+                                                        <option value="automatic">Automatic</option>
+                                                        <option value="manual">Manual</option>
+                                                        <option value="conditional">Conditional</option>
+                                                    </InputSelect>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Checkpoint Interval</label>
+                                                    <InputNumber class="form-control" @bind-Value="checkpointConfig.CheckpointInterval" />
+                                                    <small class="text-muted">Save every N steps</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3 form-check">
+                                                <InputCheckbox class="form-check-input" id="enableRecovery" @bind-Value="checkpointConfig.EnableRecovery" />
+                                                <label class="form-check-label" for="enableRecovery">
+                                                    Enable Recovery from Checkpoints
+                                                </label>
+                                            </div>
+                                        }
+                                    }
+                                }
+
+                                <!-- Actions -->
+                                <div class="d-flex gap-2 mt-4">
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        <i class="bi bi-save me-2"></i> Save Changes
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo($"/agents/{AgentId}", forceLoad: true))" disabled="@isSaving">
+                                        Cancel
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info ms-auto" @onclick="ResetToOriginal" disabled="@isSaving">
+                                        <i class="bi bi-arrow-counterclockwise me-2"></i> Reset
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="col-lg-4">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i> Agent Info</h6>
+                        </div>
+                        <div class="card-body">
+                            <small>
+                                <p><strong>Type:</strong> @agent.AgentType</p>
+                                <p><strong>Created:</strong> @agent.CreatedAt.ToShortDateString()</p>
+                                <p><strong>Last Updated:</strong> @agent.UpdatedAt.ToShortDateString()</p>
+                                <p class="mb-0"><strong>Status:</strong> <span class="badge @GetStatusBadgeClass(agent.Status)">@agent.Status</span></p>
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i> Tips</h6>
+                        </div>
+                        <div class="card-body">
+                            <small>
+                                <p><strong>Temperature:</strong></p>
+                                <p class="small">Lower (0.0-0.3) for focused, deterministic responses. Higher (0.7-1.0) for creative outputs.</p>
+
+                                <p class="mt-3"><strong>Max Tokens:</strong></p>
+                                <p class="small">Controls response length. Increase for longer, detailed responses.</p>
+
+                                <p class="mt-3 mb-0"><strong>Top P:</strong></p>
+                                <p class="small mb-0">Nucleus sampling. 1.0 = consider all tokens, lower = more focused.</p>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i> Agent not found or failed to load.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string AgentId { get; set; } = string.Empty;
+
+    private AgentDetailResponse? agent;
+    private UpdateAgentRequest? updateRequest;
+    private LLMConfiguration? llmConfig;
+    private MemoryConfiguration? memoryConfig;
+    private CheckpointConfiguration? checkpointConfig;
+    
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    // UI state
+    private bool showAdvancedLLM = false;
+    private bool showMemory = false;
+    private bool showCheckpoint = false;
+
+    // Dropdown options
+    private string selectedStatus = "Active";
+    private readonly string[] statusOptions = new[] { "Active", "Inactive", "Draft" };
+    private readonly string[] memoryTypeOptions = new[] { "conversation", "episodic", "semantic" };
+    private readonly string[] checkpointTypeOptions = new[] { "automatic", "manual", "conditional" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Small delay to ensure circuit is fully initialized
+        await Task.Delay(50);
+        await LoadAgent();
+    }
+
+    private async Task LoadAgent()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            agent = await AgentService.GetAgentAsync(AgentId);
+            
+            if (agent != null)
+            {
+                // Set current status
+                selectedStatus = agent.Status;
+
+                // Populate update request with current values
+                updateRequest = new UpdateAgentRequest
+                {
+                    Name = agent.Name,
+                    Description = agent.Description,
+                    Instructions = agent.Instructions
+                };
+
+                // Clone LLM configuration for editing
+                llmConfig = agent.LLMConfiguration != null 
+                    ? new LLMConfiguration
+                    {
+                        ModelName = agent.LLMConfiguration.ModelName,
+                        Provider = agent.LLMConfiguration.Provider,
+                        Endpoint = agent.LLMConfiguration.Endpoint,
+                        ApiKey = agent.LLMConfiguration.ApiKey,
+                        Temperature = agent.LLMConfiguration.Temperature,
+                        MaxTokens = agent.LLMConfiguration.MaxTokens,
+                        TopP = agent.LLMConfiguration.TopP,
+                        FrequencyPenalty = agent.LLMConfiguration.FrequencyPenalty,
+                        PresencePenalty = agent.LLMConfiguration.PresencePenalty,
+                        StopSequences = agent.LLMConfiguration.StopSequences?.ToList() ?? new()
+                    }
+                    : new LLMConfiguration();
+
+                // Clone Memory configuration
+                memoryConfig = agent.MemoryConfiguration != null
+                    ? new MemoryConfiguration
+                    {
+                        EnableMemory = agent.MemoryConfiguration.EnableMemory,
+                        MaxMemoryItems = agent.MemoryConfiguration.MaxMemoryItems,
+                        MemoryType = agent.MemoryConfiguration.MemoryType,
+                        RelevanceThreshold = agent.MemoryConfiguration.RelevanceThreshold,
+                        MemoryRetention = agent.MemoryConfiguration.MemoryRetention
+                    }
+                    : new MemoryConfiguration();
+
+                // Clone Checkpoint configuration
+                checkpointConfig = agent.CheckpointConfiguration != null
+                    ? new CheckpointConfiguration
+                    {
+                        EnableCheckpoints = agent.CheckpointConfiguration.EnableCheckpoints,
+                        CheckpointType = agent.CheckpointConfiguration.CheckpointType,
+                        CheckpointInterval = agent.CheckpointConfiguration.CheckpointInterval,
+                        CheckpointConditions = agent.CheckpointConfiguration.CheckpointConditions?.ToList() ?? new(),
+                        EnableRecovery = agent.CheckpointConfiguration.EnableRecovery
+                    }
+                    : new CheckpointConfiguration();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load agent: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateAgent()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Assign all configurations to update request
+            updateRequest!.LLMConfiguration = llmConfig;
+            updateRequest!.MemoryConfiguration = memoryConfig;
+            updateRequest!.CheckpointConfiguration = checkpointConfig;
+            updateRequest!.Status = selectedStatus; // Set the selected status
+
+            // Update the agent (now includes status update)
+            await AgentService.UpdateAgentAsync(AgentId, updateRequest);
+
+            successMessage = "Agent updated successfully!";
+            StateHasChanged();
+            
+            // Wait briefly to show success message, then navigate back
+            await Task.Delay(1000);
+            Navigation.NavigateTo($"/agents/{AgentId}", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update agent: {ex.Message}";
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ResetToOriginal()
+    {
+        if (agent != null)
+        {
+            selectedStatus = agent.Status;
+
+            updateRequest = new UpdateAgentRequest
+            {
+                Name = agent.Name,
+                Description = agent.Description,
+                Instructions = agent.Instructions
+            };
+
+            llmConfig = agent.LLMConfiguration != null 
+                ? new LLMConfiguration
+                {
+                    ModelName = agent.LLMConfiguration.ModelName,
+                    Provider = agent.LLMConfiguration.Provider,
+                    Temperature = agent.LLMConfiguration.Temperature,
+                    MaxTokens = agent.LLMConfiguration.MaxTokens,
+                    TopP = agent.LLMConfiguration.TopP,
+                    FrequencyPenalty = agent.LLMConfiguration.FrequencyPenalty,
+                    PresencePenalty = agent.LLMConfiguration.PresencePenalty
+                }
+                : new LLMConfiguration();
+
+            memoryConfig = agent.MemoryConfiguration != null
+                ? new MemoryConfiguration
+                {
+                    EnableMemory = agent.MemoryConfiguration.EnableMemory,
+                    MaxMemoryItems = agent.MemoryConfiguration.MaxMemoryItems,
+                    MemoryType = agent.MemoryConfiguration.MemoryType,
+                    RelevanceThreshold = agent.MemoryConfiguration.RelevanceThreshold
+                }
+                : new MemoryConfiguration();
+
+            checkpointConfig = agent.CheckpointConfiguration != null
+                ? new CheckpointConfiguration
+                {
+                    EnableCheckpoints = agent.CheckpointConfiguration.EnableCheckpoints,
+                    CheckpointType = agent.CheckpointConfiguration.CheckpointType,
+                    CheckpointInterval = agent.CheckpointConfiguration.CheckpointInterval,
+                    EnableRecovery = agent.CheckpointConfiguration.EnableRecovery
+                }
+                : new CheckpointConfiguration();
+
+            errorMessage = string.Empty;
+            successMessage = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Inactive" => "bg-warning",
+        "Draft" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}
+

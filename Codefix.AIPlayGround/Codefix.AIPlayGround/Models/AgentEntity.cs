@@ -47,7 +47,6 @@ public class AgentEntity
     public string CreatedBy { get; set; } = string.Empty;
     
     // Navigation properties
-    public virtual ICollection<FlowAgentEntity> FlowAgents { get; set; } = new List<FlowAgentEntity>();
     public virtual ICollection<AgentExecutionEntity> Executions { get; set; } = new List<AgentExecutionEntity>();
 }
 

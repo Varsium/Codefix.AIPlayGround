@@ -76,6 +76,12 @@ builder.Services.AddScoped<Codefix.AIPlayGround.Services.IChatService, Codefix.A
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentApiService, Codefix.AIPlayGround.Services.DirectAgentService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IDashboardApiService, Codefix.AIPlayGround.Services.DirectDashboardService>();
 
+// Add code generation services
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.ICodeGenerationService, Codefix.AIPlayGround.Services.CodeGenerationService>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.ICodeExecutionService, Codefix.AIPlayGround.Services.CodeExecutionService>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.SecuritySettings>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.SecuritySandboxService>();
+
 // Add session support for session management
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

@@ -51,12 +51,12 @@ public static class TestDataBuilder
         };
     }
 
-    public static CreateAgentDto CreateTestAgentDto(
+    public static CreateAgentRequest CreateTestAgentDto(
         string name = "Test Agent",
         string agentType = "LLMAgent",
         string instructions = "You are a helpful assistant")
     {
-        return new CreateAgentDto
+        return new CreateAgentRequest
         {
             Name = name,
             Description = $"Test description for {name}",
@@ -166,11 +166,11 @@ public static class TestDataBuilder
         };
     }
 
-    public static TestInputDto CreateTestInput(
+    public static TestAgentRequest CreateTestInput(
         string message = "Hello, how are you?",
         Dictionary<string, object>? context = null)
     {
-        return new TestInputDto
+        return new TestAgentRequest
         {
             Input = new Dictionary<string, object>
             {

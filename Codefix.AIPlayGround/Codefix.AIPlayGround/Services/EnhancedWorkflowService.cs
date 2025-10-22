@@ -37,6 +37,48 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
         return workflow;
     }
 
+    public async Task<Models.WorkflowDefinition> CreateWorkflowFromTemplateAsync(string templateName, string name, string description = "")
+    {
+        var template = GetWorkflowTemplate(templateName);
+        if (template == null)
+        {
+            throw new ArgumentException($"Template '{templateName}' not found");
+        }
+
+        var workflow = new Models.WorkflowDefinition
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = name,
+            Description = description,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Status = Models.WorkflowStatus.Draft,
+            Nodes = template.Nodes.Select(n => new EnhancedWorkflowNode
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = n.Name,
+                Type = n.Type,
+                X = n.X,
+                Y = n.Y,
+                Properties = n.Properties
+            }).ToList(),
+            Connections = template.Connections.Select(c => new EnhancedWorkflowConnection
+            {
+                Id = Guid.NewGuid().ToString(),
+                FromNodeId = c.FromNodeId,
+                ToNodeId = c.ToNodeId,
+                FromPort = c.FromPort,
+                ToPort = c.ToPort
+            }).ToList()
+        };
+
+        var entity = MapToEntity(workflow);
+        _context.Workflows.Add(entity);
+        await _context.SaveChangesAsync();
+
+        return workflow;
+    }
+
     public async Task<Models.WorkflowDefinition> GetWorkflowAsync(string id)
     {
         var entity = await _context.Workflows
@@ -649,6 +691,330 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
                 WorkflowId = workflow.Id
             });
         }
+    }
+
+    // Template Management
+    public List<string> GetAvailableTemplates()
+    {
+        return new List<string>
+        {
+            "Greenfield Service Development",
+            "Greenfield Fullstack Development", 
+            "Greenfield UI Development",
+            "Brownfield Service Enhancement",
+            "Brownfield Fullstack Enhancement",
+            "Brownfield UI Enhancement",
+            "Simple Sequential Workflow",
+            "Parallel Processing Workflow",
+            "Conditional Decision Workflow"
+        };
+    }
+
+    public Models.WorkflowDefinition? GetWorkflowTemplate(string templateName)
+    {
+        return templateName switch
+        {
+            "Greenfield Service Development" => CreateGreenfieldServiceTemplate(),
+            "Greenfield Fullstack Development" => CreateGreenfieldFullstackTemplate(),
+            "Greenfield UI Development" => CreateGreenfieldUITemplate(),
+            "Brownfield Service Enhancement" => CreateBrownfieldServiceTemplate(),
+            "Brownfield Fullstack Enhancement" => CreateBrownfieldFullstackTemplate(),
+            "Brownfield UI Enhancement" => CreateBrownfieldUITemplate(),
+            "Simple Sequential Workflow" => CreateSimpleSequentialTemplate(),
+            "Parallel Processing Workflow" => CreateParallelProcessingTemplate(),
+            "Conditional Decision Workflow" => CreateConditionalDecisionTemplate(),
+            _ => null
+        };
+    }
+
+    private Models.WorkflowDefinition CreateGreenfieldServiceTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Greenfield Service Development",
+            Description = "Complete workflow for building new backend services from concept to development",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear sequential positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450, InputPorts = [new() { Id = Guid.CreateVersion7().ToString() }],OutputPorts= [new() { Id = Guid.CreateVersion7().ToString() }] };
+        var analystNode = new EnhancedWorkflowNode { Id = "analyst", Name = "Business Analyst", Type = "LLMAgent", X = 250, Y = 650 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 250, Y = 850 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "System Architect", Type = "LLMAgent", X = 250, Y = 1050 };
+        var poNode = new EnhancedWorkflowNode { Id = "po", Name = "Product Owner", Type = "LLMAgent", X = 250, Y = 1250 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 250, Y = 1450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analystNode, pmNode, architectNode, poNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = startNode.Id, ToNodeId =analystNode.Id, FromPort = startNode.OutputPorts.FirstOrDefault()?.Id, ToPort = startNode.InputPorts.FirstOrDefault()?.Id, Label = "Start Analysis" },
+            new() { FromNodeId = "analyst", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "Requirements" },
+            new() { FromNodeId = "pm", ToNodeId = "architect", FromPort = "output1", ToPort = "input1", Label = "Planning" },
+            new() { FromNodeId = "architect", ToNodeId = "po", FromPort = "output1", ToPort = "input1", Label = "Architecture" },
+            new() { FromNodeId = "po", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Final Review" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateGreenfieldFullstackTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Greenfield Fullstack Development",
+            Description = "Complete workflow for building full-stack applications from concept to development",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear parallel flow positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var analystNode = new EnhancedWorkflowNode { Id = "analyst", Name = "Business Analyst", Type = "LLMAgent", X = 400, Y = 450 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 550, Y = 450 };
+        var uxNode = new EnhancedWorkflowNode { Id = "ux", Name = "UX Expert", Type = "LLMAgent", X = 700, Y = 350 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "System Architect", Type = "LLMAgent", X = 700, Y = 550 };
+        var poNode = new EnhancedWorkflowNode { Id = "po", Name = "Product Owner", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1000, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analystNode, pmNode, uxNode, architectNode, poNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "analyst", FromPort = "output1", ToPort = "input1", Label = "Start Analysis" },
+            new() { FromNodeId = "analyst", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "Requirements" },
+            new() { FromNodeId = "pm", ToNodeId = "ux", FromPort = "output1", ToPort = "input1", Label = "UX Planning" },
+            new() { FromNodeId = "pm", ToNodeId = "architect", FromPort = "output2", ToPort = "input1", Label = "Architecture Planning" },
+            new() { FromNodeId = "ux", ToNodeId = "po", FromPort = "output1", ToPort = "input1", Label = "UX Design" },
+            new() { FromNodeId = "architect", ToNodeId = "po", FromPort = "output1", ToPort = "input2", Label = "System Design" },
+            new() { FromNodeId = "po", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Final Review" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateGreenfieldUITemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Greenfield UI Development",
+            Description = "Complete workflow for building frontend applications from concept to development",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear sequential positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var analystNode = new EnhancedWorkflowNode { Id = "analyst", Name = "Business Analyst", Type = "LLMAgent", X = 400, Y = 450 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 550, Y = 450 };
+        var uxNode = new EnhancedWorkflowNode { Id = "ux", Name = "UX Expert", Type = "LLMAgent", X = 700, Y = 450 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "Frontend Architect", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1000, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analystNode, pmNode, uxNode, architectNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "analyst", FromPort = "output1", ToPort = "input1", Label = "Start Analysis" },
+            new() { FromNodeId = "analyst", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "Requirements" },
+            new() { FromNodeId = "pm", ToNodeId = "ux", FromPort = "output1", ToPort = "input1", Label = "UX Planning" },
+            new() { FromNodeId = "ux", ToNodeId = "architect", FromPort = "output1", ToPort = "input1", Label = "UX Design" },
+            new() { FromNodeId = "architect", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Frontend Architecture" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateBrownfieldServiceTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Brownfield Service Enhancement",
+            Description = "Workflow for enhancing existing backend services with new features",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear sequential positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var analysisNode = new EnhancedWorkflowNode { Id = "analysis", Name = "Service Analysis", Type = "LLMAgent", X = 400, Y = 450 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 550, Y = 450 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "System Architect", Type = "LLMAgent", X = 700, Y = 450 };
+        var poNode = new EnhancedWorkflowNode { Id = "po", Name = "Product Owner", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1000, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analysisNode, pmNode, architectNode, poNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "analysis", FromPort = "output1", ToPort = "input1", Label = "Start Analysis" },
+            new() { FromNodeId = "analysis", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "Service Analysis" },
+            new() { FromNodeId = "pm", ToNodeId = "architect", FromPort = "output1", ToPort = "input1", Label = "Planning" },
+            new() { FromNodeId = "architect", ToNodeId = "po", FromPort = "output1", ToPort = "input1", Label = "Architecture" },
+            new() { FromNodeId = "po", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Final Review" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateBrownfieldFullstackTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Brownfield Fullstack Enhancement",
+            Description = "Workflow for enhancing existing full-stack applications",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear parallel flow positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var analysisNode = new EnhancedWorkflowNode { Id = "analysis", Name = "System Analysis", Type = "LLMAgent", X = 400, Y = 450 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 550, Y = 450 };
+        var uxNode = new EnhancedWorkflowNode { Id = "ux", Name = "UX Expert", Type = "LLMAgent", X = 700, Y = 350 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "System Architect", Type = "LLMAgent", X = 700, Y = 550 };
+        var poNode = new EnhancedWorkflowNode { Id = "po", Name = "Product Owner", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1000, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analysisNode, pmNode, uxNode, architectNode, poNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "analysis", FromPort = "output1", ToPort = "input1", Label = "Start Analysis" },
+            new() { FromNodeId = "analysis", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "System Analysis" },
+            new() { FromNodeId = "pm", ToNodeId = "ux", FromPort = "output1", ToPort = "input1", Label = "UX Planning" },
+            new() { FromNodeId = "pm", ToNodeId = "architect", FromPort = "output2", ToPort = "input1", Label = "Architecture Planning" },
+            new() { FromNodeId = "ux", ToNodeId = "po", FromPort = "output1", ToPort = "input1", Label = "UX Enhancement" },
+            new() { FromNodeId = "architect", ToNodeId = "po", FromPort = "output1", ToPort = "input2", Label = "System Enhancement" },
+            new() { FromNodeId = "po", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Final Review" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateBrownfieldUITemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Brownfield UI Enhancement",
+            Description = "Workflow for enhancing existing frontend applications",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear sequential positioning - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var analysisNode = new EnhancedWorkflowNode { Id = "analysis", Name = "UI Analysis", Type = "LLMAgent", X = 400, Y = 450 };
+        var pmNode = new EnhancedWorkflowNode { Id = "pm", Name = "Product Manager", Type = "LLMAgent", X = 550, Y = 450 };
+        var uxNode = new EnhancedWorkflowNode { Id = "ux", Name = "UX Expert", Type = "LLMAgent", X = 700, Y = 450 };
+        var architectNode = new EnhancedWorkflowNode { Id = "architect", Name = "Frontend Architect", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1000, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, analysisNode, pmNode, uxNode, architectNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "analysis", FromPort = "output1", ToPort = "input1", Label = "Start Analysis" },
+            new() { FromNodeId = "analysis", ToNodeId = "pm", FromPort = "output1", ToPort = "input1", Label = "UI Analysis" },
+            new() { FromNodeId = "pm", ToNodeId = "ux", FromPort = "output1", ToPort = "input1", Label = "UX Planning" },
+            new() { FromNodeId = "ux", ToNodeId = "architect", FromPort = "output1", ToPort = "input1", Label = "UX Enhancement" },
+            new() { FromNodeId = "architect", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Frontend Enhancement" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateSimpleSequentialTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Simple Sequential Workflow",
+            Description = "Basic sequential workflow with start, process, and end nodes",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear linear flow - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var processNode = new EnhancedWorkflowNode { Id = "process", Name = "Process", Type = "LLMAgent", X = 550, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 850, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, processNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "process", FromPort = "output1", ToPort = "input1", Label = "Start Process" },
+            new() { FromNodeId = "process", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Complete" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateParallelProcessingTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Parallel Processing Workflow",
+            Description = "Workflow with parallel processing capabilities",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear parallel processing flow - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var parallelNode = new EnhancedWorkflowNode { Id = "parallel", Name = "Parallel Processor", Type = "ParallelAgent", X = 450, Y = 450 };
+        var process1Node = new EnhancedWorkflowNode { Id = "process1", Name = "Process 1", Type = "LLMAgent", X = 650, Y = 350 };
+        var process2Node = new EnhancedWorkflowNode { Id = "process2", Name = "Process 2", Type = "LLMAgent", X = 650, Y = 550 };
+        var mergeNode = new EnhancedWorkflowNode { Id = "merge", Name = "Merge Results", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1050, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, parallelNode, process1Node, process2Node, mergeNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "parallel", FromPort = "output1", ToPort = "input1", Label = "Start Parallel" },
+            new() { FromNodeId = "parallel", ToNodeId = "process1", FromPort = "output1", ToPort = "input1", Label = "Branch 1" },
+            new() { FromNodeId = "parallel", ToNodeId = "process2", FromPort = "output2", ToPort = "input1", Label = "Branch 2" },
+            new() { FromNodeId = "process1", ToNodeId = "merge", FromPort = "output1", ToPort = "input1", Label = "Result 1" },
+            new() { FromNodeId = "process2", ToNodeId = "merge", FromPort = "output1", ToPort = "input2", Label = "Result 2" },
+            new() { FromNodeId = "merge", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Merge Complete" }
+        };
+
+        return workflow;
+    }
+
+    private Models.WorkflowDefinition CreateConditionalDecisionTemplate()
+    {
+        var workflow = new Models.WorkflowDefinition
+        {
+            Name = "Conditional Decision Workflow",
+            Description = "Workflow with conditional branching and decision points",
+            Status = Models.WorkflowStatus.Draft
+        };
+
+        // Create nodes with clear conditional branching flow - spread out more
+        var startNode = new EnhancedWorkflowNode { Id = "start", Name = "Start", Type = "StartNode", X = 250, Y = 450 };
+        var decisionNode = new EnhancedWorkflowNode { Id = "decision", Name = "Decision Point", Type = "ConditionalAgent", X = 450, Y = 450 };
+        var path1Node = new EnhancedWorkflowNode { Id = "path1", Name = "Path A", Type = "LLMAgent", X = 650, Y = 350 };
+        var path2Node = new EnhancedWorkflowNode { Id = "path2", Name = "Path B", Type = "LLMAgent", X = 650, Y = 550 };
+        var mergeNode = new EnhancedWorkflowNode { Id = "merge", Name = "Merge", Type = "LLMAgent", X = 850, Y = 450 };
+        var endNode = new EnhancedWorkflowNode { Id = "end", Name = "End", Type = "EndNode", X = 1050, Y = 450 };
+
+        workflow.Nodes = new List<EnhancedWorkflowNode> { startNode, decisionNode, path1Node, path2Node, mergeNode, endNode };
+
+        // Create connections
+        workflow.Connections = new List<EnhancedWorkflowConnection>
+        {
+            new() { FromNodeId = "start", ToNodeId = "decision", FromPort = "output1", ToPort = "input1", Label = "Start Decision" },
+            new() { FromNodeId = "decision", ToNodeId = "path1", FromPort = "output1", ToPort = "input1", Label = "Path A" },
+            new() { FromNodeId = "decision", ToNodeId = "path2", FromPort = "output2", ToPort = "input1", Label = "Path B" },
+            new() { FromNodeId = "path1", ToNodeId = "merge", FromPort = "output1", ToPort = "input1", Label = "Result A" },
+            new() { FromNodeId = "path2", ToNodeId = "merge", FromPort = "output1", ToPort = "input2", Label = "Result B" },
+            new() { FromNodeId = "merge", ToNodeId = "end", FromPort = "output1", ToPort = "input1", Label = "Merge Complete" }
+        };
+
+        return workflow;
     }
 }
 

@@ -22,26 +22,26 @@ else if (agent != null)
         <!-- Header -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/agents"))">
-                            <i class="bi bi-arrow-left"></i> Back
-                        </button>
-                        <h2 class="mb-0">@agent.Name</h2>
-                        <span class="badge @GetStatusBadgeClass(agent.Status) fs-6">@agent.Status</span>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <button class="btn btn-outline-secondary" @onclick="@(() => Navigation.NavigateTo("/agents"))">
+                                <i class="bi bi-arrow-left"></i> Back
+                            </button>
+                            <h2 class="mb-0">@agent.Name</h2>
+                            <span class="badge @GetStatusBadgeClass(agent.Status) fs-6">@agent.Status</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success">
+                                <i class="bi bi-play-fill me-2"></i> Test Agent
+                            </button>
+                            <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo($"/agents/{AgentId}/edit", forceLoad: true))">
+                                <i class="bi bi-pencil me-2"></i> Edit
+                            </button>
+                            <button class="btn btn-outline-danger" @onclick="DeleteAgent">
+                                <i class="bi bi-trash me-2"></i> Delete
+                            </button>
+                        </div>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-success">
-                            <i class="bi bi-play-fill me-2"></i> Test Agent
-                        </button>
-                        <button class="btn btn-primary">
-                            <i class="bi bi-pencil me-2"></i> Edit
-                        </button>
-                        <button class="btn btn-outline-danger" @onclick="DeleteAgent">
-                            <i class="bi bi-trash me-2"></i> Delete
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -207,14 +207,14 @@ else if (agent != null)
                         <h5 class="mb-0">Associated Workflows</h5>
                     </div>
                     <div class="card-body">
-                        @if (agent.Flows?.Any() == true)
+                        @if (agent.Workflows?.Any() == true)
                         {
                             <div class="list-group list-group-flush">
-                                @foreach (var flow in agent.Flows)
+                                @foreach (var workflow in agent.Workflows)
                                 {
                                     <button class="list-group-item list-group-item-action" 
-                                           @onclick="@(() => Navigation.NavigateTo($"/workflows/{flow.Id}"))">
-                                        <i class="bi bi-diagram-3 me-2"></i> @flow.Name
+                                           @onclick="@(() => Navigation.NavigateTo($"/workflows/{workflow.Id}"))">
+                                        <i class="bi bi-diagram-3 me-2"></i> @workflow.Name
                                     </button>
                                 }
                             </div>
@@ -259,6 +259,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Small delay to ensure circuit is fully initialized
+        await Task.Delay(50);
         await LoadAgent();
     }
 
@@ -270,6 +272,24 @@ else
         try
         {
             agent = await AgentService.GetAgentAsync(AgentId);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("BaseAddress"))
+        {
+            // Render mode transition issue - retry after a brief delay
+            Console.WriteLine($"BaseAddress error on agent detail, retrying...");
+            await Task.Delay(100);
+            try
+            {
+                agent = await AgentService.GetAgentAsync(AgentId);
+            }
+            catch (Exception retryEx)
+            {
+                Console.WriteLine($"Failed to load agent after retry: {retryEx.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading agent: {ex.Message}");
         }
         finally
         {

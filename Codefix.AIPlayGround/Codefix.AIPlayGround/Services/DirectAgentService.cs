@@ -82,8 +82,6 @@ public class DirectAgentService : IAgentApiService
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             var agent = await context.Agents
-                .Include(a => a.FlowAgents)
-                    .ThenInclude(fa => fa.Flow)
                 .Include(a => a.Executions.OrderByDescending(e => e.StartedAt).Take(10))
                 .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -107,18 +105,6 @@ public class DirectAgentService : IAgentApiService
                 MemoryConfiguration = JsonSerializer.Deserialize<MemoryConfiguration>(agent.MemoryConfigurationJson),
                 CheckpointConfiguration = JsonSerializer.Deserialize<CheckpointConfiguration>(agent.CheckpointConfigurationJson),
                 Properties = JsonSerializer.Deserialize<Dictionary<string, object>>(agent.PropertiesJson) ?? new(),
-                Flows = agent.FlowAgents.Select(fa => new FlowResponse
-                {
-                    Id = fa.Flow.Id,
-                    Name = fa.Flow.Name,
-                    Description = fa.Flow.Description,
-                    Version = fa.Flow.Version,
-                    FlowType = fa.Flow.FlowType,
-                    Status = fa.Flow.Status.ToString(),
-                    CreatedAt = fa.Flow.CreatedAt,
-                    UpdatedAt = fa.Flow.UpdatedAt,
-                    CreatedBy = fa.Flow.CreatedBy
-                }).ToList(),
                 RecentExecutions = agent.Executions.Select(e => new AgentExecutionResponse
                 {
                     Id = e.Id,
@@ -201,6 +187,15 @@ public class DirectAgentService : IAgentApiService
 
             if (!string.IsNullOrEmpty(dto.Instructions))
                 agent.Instructions = dto.Instructions;
+
+            // Update status if provided
+            if (!string.IsNullOrEmpty(dto.Status))
+            {
+                if (Enum.TryParse<AgentStatus>(dto.Status, out var status))
+                {
+                    agent.Status = status;
+                }
+            }
 
             if (dto.LLMConfiguration != null)
                 agent.LLMConfigurationJson = JsonSerializer.Serialize(dto.LLMConfiguration);

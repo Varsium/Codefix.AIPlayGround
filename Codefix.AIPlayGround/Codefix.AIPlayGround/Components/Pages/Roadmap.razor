@@ -1,0 +1,494 @@
+@page "/roadmap"
+@using Codefix.AIPlayGround.Models
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>Roadmap - AI PlayGround</PageTitle>
+
+<div class="roadmap-container">
+    <div class="roadmap-header">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="display-6 fw-bold text-primary">
+                    <i class="bi bi-map me-3"></i>Roadmap to Vision
+                </h1>
+                <p class="lead text-muted">The journey from current state to our hybrid low-code/pro-code platform</p>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-success fs-6 mb-2">Current Status</div>
+                <div class="text-muted small">Updated @DateTime.Now.ToString("MMM dd, yyyy")</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Status -->
+    <div class="current-status mb-5">
+        <h2 class="h4 mb-3">
+            <i class="bi bi-check-circle-fill text-success me-2"></i>What We Have Now
+        </h2>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-diagram-3 me-2"></i>Visual Workflow Builder
+                        </h5>
+                        <p class="card-text">Basic drag-and-drop interface with node types and connections</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-database me-2"></i>Workflow Persistence
+                        </h5>
+                        <p class="card-text">Database storage and retrieval of workflows with versioning</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-robot me-2"></i>Agent Framework
+                        </h5>
+                        <p class="card-text">Core agent types and configuration models ready for execution</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Critical Missing Features -->
+    <div class="critical-features mb-5">
+        <h2 class="h4 mb-4">
+            <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Critical Missing Features
+            <span class="badge bg-danger ms-2">High Priority</span>
+        </h2>
+
+        <!-- Code Detection & Tool Integration -->
+        <div class="feature-section mb-4">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-search me-2"></i>1. Code Detection & Tool Integration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">The core hybrid functionality - automatically discover and integrate code methods into the visual builder</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Reflection-based tool discovery</span>
+                                    <small class="text-muted d-block ms-4">Scan codebase for methods with [Tool] attributes</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Automatic node generation</span>
+                                    <small class="text-muted d-block ms-4">Create visual nodes from discovered tools</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Parameter mapping UI</span>
+                                    <small class="text-muted d-block ms-4">Visual interface for mapping tool parameters</small>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Real-time code sync</span>
+                                    <small class="text-muted d-block ms-4">Watch file system for changes and update UI</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Tool metadata extraction</span>
+                                    <small class="text-muted d-block ms-4">Parse method signatures, XML docs, and attributes</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Dependency resolution</span>
+                                    <small class="text-muted d-block ms-4">Handle tool dependencies and imports</small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">0% Complete</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workflow Execution Engine -->
+        <div class="feature-section mb-4">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning-fill me-2"></i>2. Workflow Execution Engine
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Make workflows actually run - the engine that executes visual workflows step by step</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Real-time workflow execution</span>
+                                    <small class="text-muted d-block ms-4">Execute workflows step by step with live feedback</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Node execution logic</span>
+                                    <small class="text-muted d-block ms-4">Implement actual execution for each agent type</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Data flow management</span>
+                                    <small class="text-muted d-block ms-4">Pass data between nodes during execution</small>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Error handling & recovery</span>
+                                    <small class="text-muted d-block ms-4">Robust error handling and retry mechanisms</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Execution monitoring</span>
+                                    <small class="text-muted d-block ms-4">Real-time status updates and progress tracking</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Performance metrics</span>
+                                    <small class="text-muted d-block ms-4">Execution time, memory usage, success rates</small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">0% Complete</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- LLM Integration & Agent Execution -->
+        <div class="feature-section mb-4">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-robot me-2"></i>3. LLM Integration & Agent Execution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Connect to real AI providers and make agents actually work</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">OpenAI/Azure OpenAI integration</span>
+                                    <small class="text-muted d-block ms-4">Connect to actual LLM providers</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Prompt template system</span>
+                                    <small class="text-muted d-block ms-4">Dynamic prompt generation and management</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Memory management</span>
+                                    <small class="text-muted d-block ms-4">Context and conversation memory for agents</small>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Tool calling</span>
+                                    <small class="text-muted d-block ms-4">Execute discovered tools from LLM agents</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Streaming responses</span>
+                                    <small class="text-muted d-block ms-4">Real-time streaming of LLM responses</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Multi-provider support</span>
+                                    <small class="text-muted d-block ms-4">Support for multiple LLM providers</small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">0% Complete</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code Generation Pipeline -->
+        <div class="feature-section mb-4">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill me-2"></i>4. Code Generation Pipeline
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">The ultimate goal - convert visual workflows into production-ready code</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Workflow-to-code generator</span>
+                                    <small class="text-muted d-block ms-4">Convert visual workflows to executable code</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Agent code templates</span>
+                                    <small class="text-muted d-block ms-4">Generate complete agent implementations</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Deployment packages</span>
+                                    <small class="text-muted d-block ms-4">Create deployable applications from workflows</small>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Code optimization</span>
+                                    <small class="text-muted d-block ms-4">Optimize generated code for performance</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Testing framework</span>
+                                    <small class="text-muted d-block ms-4">Generate unit tests for created agents</small>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-circle me-2 text-muted"></i>
+                                    <span class="text-decoration-line-through">Documentation generation</span>
+                                    <small class="text-muted d-block ms-4">Auto-generate docs from workflows</small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">0% Complete</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Implementation Phases -->
+    <div class="implementation-phases mb-5">
+        <h2 class="h4 mb-4">
+            <i class="bi bi-calendar3 me-2"></i>Implementation Timeline
+        </h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="bi bi-1-circle me-2"></i>Phase 1: Core Execution
+                        </h5>
+                        <small>Months 1-3</small>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle me-2 text-warning"></i>
+                                Implement workflow execution engine
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle me-2 text-warning"></i>
+                                Add LLM integration and agent execution
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle me-2 text-warning"></i>
+                                Build basic code detection system
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle me-2 text-warning"></i>
+                                Create real-time execution monitoring
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-info h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-2-circle me-2"></i>Phase 2: Pro-Code Integration
+                        </h5>
+                        <small>Months 4-6</small>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Complete code detection and tool integration
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Build code generation pipeline
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Add IDE extensions and Git integration
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Implement advanced visual builder features
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-primary h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-3-circle me-2"></i>Phase 3: Enterprise & AI
+                        </h5>
+                        <small>Months 7-12</small>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Add enterprise features and security
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Implement AI-powered development tools
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Build ecosystem and marketplace
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-circle me-2 text-muted"></i>
+                                Create mobile and advanced interfaces
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call to Action -->
+    <div class="cta-section">
+        <div class="card border-primary">
+            <div class="card-body text-center py-5">
+                <h3 class="card-title text-primary mb-3">
+                    <i class="bi bi-rocket-takeoff me-2"></i>Ready to Help Build the Future?
+                </h3>
+                <p class="card-text text-muted mb-4">
+                    Join us in creating the ultimate hybrid low-code/pro-code platform. 
+                    Every contribution brings us closer to the vision.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="/workflows/builder" class="btn btn-primary btn-lg">
+                        <i class="bi bi-play-circle me-2"></i>Try the Builder
+                    </a>
+                    <a href="https://github.com/yourusername/Codefix.AIPlayGround" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-github me-2"></i>Contribute on GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .roadmap-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .roadmap-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 2rem;
+        border-radius: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .feature-section .card {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .feature-section .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+
+    .implementation-phases .card {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .implementation-phases .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .cta-section .card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+    }
+
+    .cta-section .btn {
+        border-radius: 50px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+    }
+
+    .text-decoration-line-through {
+        text-decoration: line-through;
+        opacity: 0.6;
+    }
+
+    .list-unstyled li {
+        transition: all 0.2s ease;
+    }
+
+    .list-unstyled li:hover {
+        background-color: rgba(0,0,0,0.05);
+        border-radius: 0.25rem;
+        padding: 0.25rem;
+        margin: -0.25rem;
+    }
+</style>

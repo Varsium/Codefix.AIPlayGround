@@ -59,6 +59,16 @@
     </div>
 
     <!-- Agent Cards -->
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i> @errorMessage
+            <button class="btn btn-sm btn-outline-secondary ms-3" @onclick="LoadAgents">
+                <i class="bi bi-arrow-clockwise me-1"></i> Retry
+            </button>
+        </div>
+    }
+
     @if (isLoading)
     {
         <div class="text-center p-5">
@@ -127,21 +137,48 @@
     private List<AgentResponse> agents = new();
     private GetAgentsRequest filter = new() { Page = 1, PageSize = 12 };
     private bool isLoading = true;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        // Small delay to ensure circuit is fully initialized
+        await Task.Delay(50);
         await LoadAgents();
     }
 
     private async Task LoadAgents()
     {
         isLoading = true;
+        errorMessage = null;
         StateHasChanged();
         
         try
         {
             var result = await AgentService.GetAgentsAsync(filter);
             agents = result.ToList();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("BaseAddress"))
+        {
+            // Render mode transition issue - retry after a brief delay
+            Console.WriteLine($"BaseAddress error, retrying... {ex.Message}");
+            await Task.Delay(100);
+            try
+            {
+                var result = await AgentService.GetAgentsAsync(filter);
+                agents = result.ToList();
+            }
+            catch (Exception retryEx)
+            {
+                errorMessage = $"Failed to load agents after retry: {retryEx.Message}";
+                Console.WriteLine(errorMessage);
+                agents = new List<AgentResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading agents: {ex.Message}";
+            Console.WriteLine(errorMessage);
+            agents = new List<AgentResponse>();
         }
         finally
         {

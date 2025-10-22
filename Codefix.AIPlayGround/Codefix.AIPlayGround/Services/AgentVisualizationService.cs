@@ -46,7 +46,7 @@ public class AgentVisualizationService : IAgentVisualizationService
         return Task.FromResult(_workflowConnections.ToList());
     }
 
-    public Task SaveWorkflowAsync(string name, List<WorkflowNode> nodes, List<WorkflowConnection> connections)
+    public Task SaveWorkflowAsync(string name, List<EnhancedWorkflowNode> nodes, List<EnhancedWorkflowConnection> connections)
     {
         var workflow = new WorkflowDefinition
         {
@@ -119,18 +119,3 @@ public class AgentVisualizationService : IAgentVisualizationService
     }
 }
 
-public class WorkflowDefinition
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string Name { get; set; } = string.Empty;
-    public List<WorkflowNode> Nodes { get; set; } = new();
-    public List<WorkflowConnection> Connections { get; set; } = new();
-    public string CreatedBy { get; internal set; }
-    public string Version { get; internal set; }
-    public string Description { get; internal set; }
-    public DateTime CreatedAt { get; internal set; }
-    public DateTime UpdatedAt { get; internal set; }
-    public WorkflowStatus Status { get; internal set; }
-    public WorkflowMetadataEntity Metadata { get; internal set; }
-    public WorkflowSettingsEntity Settings { get; internal set; }
-}

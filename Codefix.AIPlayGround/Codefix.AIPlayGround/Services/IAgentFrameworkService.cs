@@ -9,11 +9,9 @@ public interface IAgentFrameworkService
     Task<AgentFrameworkResult> UpdateAgentAsync(AgentEntity agent);
     Task<AgentFrameworkResult> DeployAgentAsync(string agentId);
     Task<AgentFrameworkResult> TestAgentAsync(string agentId, object input);
-    Task<AgentFrameworkResult> ExecuteFlowAsync(FlowEntity flow, object input);
     Task<AgentFrameworkResult> GetAgentStatusAsync(string agentId);
     Task<AgentFrameworkResult> StopExecutionAsync(string executionId);
     Task<AgentFrameworkResult> ValidateAgentConfigurationAsync(AgentEntity agent);
-    Task<AgentFrameworkResult> ValidateFlowConfigurationAsync(FlowEntity flow);
 }
 
 public class AgentFrameworkResult

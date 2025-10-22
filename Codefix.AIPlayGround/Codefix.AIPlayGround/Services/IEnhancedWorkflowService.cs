@@ -6,11 +6,16 @@ public interface IEnhancedWorkflowService
 {
     // Workflow Management
     Task<Models.WorkflowDefinition> CreateWorkflowAsync(string name, string description = "");
+    Task<Models.WorkflowDefinition> CreateWorkflowFromTemplateAsync(string templateName, string name, string description = "");
     Task<Models.WorkflowDefinition> GetWorkflowAsync(string id);
     Task<List<Models.WorkflowDefinition>> GetAllWorkflowsAsync();
     Task<Models.WorkflowDefinition> UpdateWorkflowAsync(Models.WorkflowDefinition workflow);
     Task<bool> DeleteWorkflowAsync(string id);
     Task ReloadWorkflowsAsync();
+    
+    // Template Management
+    List<string> GetAvailableTemplates();
+    Models.WorkflowDefinition? GetWorkflowTemplate(string templateName);
     
     // Node Management
     Task<EnhancedWorkflowNode> AddNodeAsync(string workflowId, AgentType nodeType, double x, double y);

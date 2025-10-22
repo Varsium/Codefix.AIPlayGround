@@ -14,12 +14,20 @@ public class AgentFactory : IAgentFactory
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AgentFactory> _logger;
+    private readonly ICodeGenerationService _codeGenerationService;
+    private readonly ICodeExecutionService _codeExecutionService;
     private readonly List<AgentTemplate> _templates;
 
-    public AgentFactory(ApplicationDbContext context, ILogger<AgentFactory> logger)
+    public AgentFactory(
+        ApplicationDbContext context, 
+        ILogger<AgentFactory> logger,
+        ICodeGenerationService codeGenerationService,
+        ICodeExecutionService codeExecutionService)
     {
         _context = context;
         _logger = logger;
+        _codeGenerationService = codeGenerationService;
+        _codeExecutionService = codeExecutionService;
         _templates = InitializeTemplates();
     }
 
@@ -297,6 +305,165 @@ public class AgentFactory : IAgentFactory
         await _context.SaveChangesAsync();
 
         return agent;
+    }
+
+    /// <summary>
+    /// Creates a code-generated agent with custom C# code
+    /// </summary>
+    public async Task<AgentEntity> CreateCodeGeneratedAgentAsync(AgentCodeSpecification specification)
+    {
+        _logger.LogInformation("Creating code-generated agent: {AgentName}", specification.AgentName);
+
+        try
+        {
+            // Generate the agent code
+            var codeResult = await _codeGenerationService.GenerateAgentCodeAsync(specification);
+            if (!codeResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Code generation failed: {codeResult.Message}");
+            }
+
+            // Compile the generated code
+            var assemblyName = $"{specification.AgentName}_{Guid.NewGuid().ToString().Substring(0, 8)}";
+            var compilationResult = await _codeGenerationService.CompileAgentCodeAsync(codeResult.GeneratedCode, assemblyName);
+            if (!compilationResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Code compilation failed: {compilationResult.Message}");
+            }
+
+            // Create agent entity
+            var agent = new AgentEntity
+            {
+                Name = specification.AgentName,
+                Description = specification.Description,
+                AgentType = "CodeGeneratedAgent",
+                Instructions = $"Code-generated agent with {specification.Methods.Count} methods",
+                LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration()),
+                ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+                PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+                MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+                CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
+                PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    { "AssemblyPath", compilationResult.AssemblyPath },
+                    { "ClassName", specification.AgentName },
+                    { "GeneratedCode", codeResult.GeneratedCode },
+                    { "GeneratedAt", DateTime.UtcNow },
+                    { "MethodCount", specification.Methods.Count },
+                    { "PropertyCount", specification.Properties.Count },
+                    { "SecuritySettings", specification.Security }
+                }),
+                CreatedBy = "CodeGenerationService"
+            };
+
+            _context.Agents.Add(agent);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully created code-generated agent: {AgentId}", agent.Id);
+            return agent;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating code-generated agent: {AgentName}", specification.AgentName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Creates an agent from a code template
+    /// </summary>
+    public async Task<AgentEntity> CreateAgentFromTemplateAsync(string templateName, Dictionary<string, object> parameters)
+    {
+        _logger.LogInformation("Creating agent from template: {TemplateName}", templateName);
+
+        try
+        {
+            // Generate code from template
+            var codeResult = await _codeGenerationService.GenerateFromTemplateAsync(templateName, parameters);
+            if (!codeResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Template generation failed: {codeResult.Message}");
+            }
+
+            // Get template details
+            var templates = await _codeGenerationService.GetAvailableTemplatesAsync();
+            var template = templates.FirstOrDefault(t => t.Name.Equals(templateName, StringComparison.OrdinalIgnoreCase));
+            if (template == null)
+            {
+                throw new ArgumentException($"Template '{templateName}' not found");
+            }
+
+            // Compile the generated code
+            var agentName = parameters.GetValueOrDefault("AgentName", $"GeneratedAgent_{Guid.NewGuid().ToString().Substring(0, 8)}").ToString()!;
+            var assemblyName = $"{agentName}_{Guid.NewGuid().ToString().Substring(0, 8)}";
+            var compilationResult = await _codeGenerationService.CompileAgentCodeAsync(codeResult.GeneratedCode, assemblyName);
+            if (!compilationResult.IsSuccess)
+            {
+                throw new InvalidOperationException($"Code compilation failed: {compilationResult.Message}");
+            }
+
+            // Create agent entity
+            var agent = new AgentEntity
+            {
+                Name = agentName,
+                Description = template.Description,
+                AgentType = "CodeGeneratedAgent",
+                Instructions = $"Template-generated agent from {templateName}",
+                LLMConfigurationJson = JsonSerializer.Serialize(new LLMConfiguration()),
+                ToolsConfigurationJson = JsonSerializer.Serialize(new List<ToolConfiguration>()),
+                PromptTemplateJson = JsonSerializer.Serialize(new PromptTemplate()),
+                MemoryConfigurationJson = JsonSerializer.Serialize(new MemoryConfiguration()),
+                CheckpointConfigurationJson = JsonSerializer.Serialize(new CheckpointConfiguration()),
+                PropertiesJson = JsonSerializer.Serialize(new Dictionary<string, object>
+                {
+                    { "TemplateName", templateName },
+                    { "AssemblyPath", compilationResult.AssemblyPath },
+                    { "ClassName", agentName },
+                    { "GeneratedCode", codeResult.GeneratedCode },
+                    { "GeneratedAt", DateTime.UtcNow },
+                    { "TemplateCategory", template.Category },
+                    { "TemplateParameters", parameters }
+                }),
+                CreatedBy = "TemplateGenerationService"
+            };
+
+            _context.Agents.Add(agent);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully created template-generated agent: {AgentId}", agent.Id);
+            return agent;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating agent from template: {TemplateName}", templateName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Executes a code-generated agent
+    /// </summary>
+    public async Task<AgentExecutionResult> ExecuteCodeGeneratedAgentAsync(string agentId, object input, Dictionary<string, object>? context = null)
+    {
+        _logger.LogInformation("Executing code-generated agent: {AgentId}", agentId);
+        return await _codeExecutionService.ExecuteAgentAsync(agentId, input, context);
+    }
+
+    /// <summary>
+    /// Executes a specific method on a code-generated agent
+    /// </summary>
+    public async Task<AgentExecutionResult> ExecuteAgentMethodAsync(string agentId, string methodName, object[]? parameters = null)
+    {
+        _logger.LogInformation("Executing agent method: {AgentId}.{MethodName}", agentId, methodName);
+        return await _codeExecutionService.ExecuteAgentMethodAsync(agentId, methodName, parameters);
+    }
+
+    /// <summary>
+    /// Gets available code templates
+    /// </summary>
+    public async Task<List<CodeTemplate>> GetCodeTemplatesAsync()
+    {
+        return await _codeGenerationService.GetAvailableTemplatesAsync();
     }
 
     public async Task<List<AgentTemplate>> GetAvailableTemplatesAsync()

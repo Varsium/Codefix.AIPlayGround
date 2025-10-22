@@ -164,70 +164,6 @@ public class AgentFrameworkService : IAgentFrameworkService
         }
     }
 
-    public async Task<AgentFrameworkResult> ExecuteFlowAsync(FlowEntity flow, object input)
-    {
-        try
-        {
-            _logger.LogInformation("Executing flow {FlowId}", flow.Id);
-
-            // Create flow execution record
-            var execution = new FlowExecutionEntity
-            {
-                FlowId = flow.Id,
-                InputDataJson = JsonSerializer.Serialize(input),
-                Status = ExecutionStatus.Running
-            };
-
-            _context.FlowExecutions.Add(execution);
-            await _context.SaveChangesAsync();
-
-            // Get flow agents and nodes
-            var flowAgents = await _context.FlowAgents
-                .Include(fa => fa.Agent)
-                .Where(fa => fa.FlowId == flow.Id)
-                .OrderBy(fa => fa.Order)
-                .ToListAsync();
-
-            var flowNodes = await _context.FlowNodes
-                .Include(fn => fn.Node)
-                .Where(fn => fn.FlowId == flow.Id)
-                .OrderBy(fn => fn.Order)
-                .ToListAsync();
-
-            var steps = new List<object>();
-
-            // Execute based on flow type
-            switch (flow.FlowType)
-            {
-                case "Sequential":
-                    await ExecuteSequentialFlowAsync(flowAgents, flowNodes, input, steps);
-                    break;
-                case "Parallel":
-                    await ExecuteParallelFlowAsync(flowAgents, flowNodes, input, steps);
-                    break;
-                case "Conditional":
-                    await ExecuteConditionalFlowAsync(flowAgents, flowNodes, input, steps);
-                    break;
-                default:
-                    throw new NotSupportedException($"Flow type {flow.FlowType} is not supported");
-            }
-
-            // Update execution with results
-            execution.Status = ExecutionStatus.Completed;
-            execution.CompletedAt = DateTime.UtcNow;
-            execution.StepsJson = JsonSerializer.Serialize(steps);
-            execution.OutputDataJson = JsonSerializer.Serialize(new { result = "Flow executed successfully", steps });
-
-            await _context.SaveChangesAsync();
-
-            return AgentFrameworkResult.Success("Flow executed successfully", execution);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing flow {FlowId}", flow.Id);
-            return AgentFrameworkResult.Failure($"Failed to execute flow: {ex.Message}");
-        }
-    }
 
     public async Task<AgentFrameworkResult> GetAgentStatusAsync(string agentId)
     {
@@ -336,33 +272,6 @@ public class AgentFrameworkService : IAgentFrameworkService
         return AgentFrameworkResult.Success("Agent configuration is valid");
     }
 
-    public async Task<AgentFrameworkResult> ValidateFlowConfigurationAsync(FlowEntity flow)
-    {
-        var errors = new List<string>();
-        var warnings = new List<string>();
-
-        // Validate required fields
-        if (string.IsNullOrWhiteSpace(flow.Name))
-            errors.Add("Flow name is required");
-
-        if (string.IsNullOrWhiteSpace(flow.FlowType))
-            errors.Add("Flow type is required");
-
-        // Validate flow has agents or nodes
-        var hasAgents = await _context.FlowAgents.AnyAsync(fa => fa.FlowId == flow.Id);
-        var hasNodes = await _context.FlowNodes.AnyAsync(fn => fn.FlowId == flow.Id);
-
-        if (!hasAgents && !hasNodes)
-            errors.Add("Flow must have at least one agent or node");
-
-        if (errors.Any())
-            return AgentFrameworkResult.Failure("Flow configuration validation failed", errors);
-
-        if (warnings.Any())
-            return AgentFrameworkResult.Warning("Flow configuration has warnings", warnings);
-
-        return AgentFrameworkResult.Success("Flow configuration is valid");
-    }
 
     // Private helper methods for different agent types
     private async Task<AgentFrameworkResult> CreateLLMAgentAsync(AgentEntity agent, LLMConfiguration llmConfig)
@@ -414,53 +323,5 @@ public class AgentFrameworkService : IAgentFrameworkService
         return AgentFrameworkResult.Success("MCP Agent created successfully", new { AgentId = agent.Id, Type = "MCPAgent" });
     }
 
-    // Private helper methods for flow execution
-    private async Task ExecuteSequentialFlowAsync(List<FlowAgentEntity> flowAgents, List<FlowNodeEntity> flowNodes, object input, List<object> steps)
-    {
-        // Execute agents and nodes in sequence
-        foreach (var flowAgent in flowAgents)
-        {
-            var step = new { Type = "Agent", AgentId = flowAgent.AgentId, Status = "Completed" };
-            steps.Add(step);
-        }
-
-        foreach (var flowNode in flowNodes)
-        {
-            var step = new { Type = "Node", NodeId = flowNode.NodeId, Status = "Completed" };
-            steps.Add(step);
-        }
-    }
-
-    private async Task ExecuteParallelFlowAsync(List<FlowAgentEntity> flowAgents, List<FlowNodeEntity> flowNodes, object input, List<object> steps)
-    {
-        // Execute agents and nodes in parallel
-        var tasks = new List<Task>();
-
-        foreach (var flowAgent in flowAgents)
-        {
-            tasks.Add(Task.Run(() =>
-            {
-                var step = new { Type = "Agent", AgentId = flowAgent.AgentId, Status = "Completed" };
-                steps.Add(step);
-            }));
-        }
-
-        foreach (var flowNode in flowNodes)
-        {
-            tasks.Add(Task.Run(() =>
-            {
-                var step = new { Type = "Node", NodeId = flowNode.NodeId, Status = "Completed" };
-                steps.Add(step);
-            }));
-        }
-
-        await Task.WhenAll(tasks);
-    }
-
-    private async Task ExecuteConditionalFlowAsync(List<FlowAgentEntity> flowAgents, List<FlowNodeEntity> flowNodes, object input, List<object> steps)
-    {
-        // Execute based on conditions (simplified implementation)
-        await ExecuteSequentialFlowAsync(flowAgents, flowNodes, input, steps);
-    }
 }
 

@@ -62,6 +62,13 @@ public interface IAgentFactory
     /// Clones an existing agent with modifications
     /// </summary>
     Task<AgentEntity> CloneAgentAsync(string sourceAgentId, string newName, Dictionary<string, object>? modifications = null);
+    
+    // Code generation methods
+    Task<AgentEntity> CreateCodeGeneratedAgentAsync(AgentCodeSpecification specification);
+    Task<AgentEntity> CreateAgentFromTemplateAsync(string templateName, Dictionary<string, object> parameters);
+    Task<AgentExecutionResult> ExecuteCodeGeneratedAgentAsync(string agentId, object input, Dictionary<string, object>? context = null);
+    Task<AgentExecutionResult> ExecuteAgentMethodAsync(string agentId, string methodName, object[]? parameters = null);
+    Task<List<CodeTemplate>> GetCodeTemplatesAsync();
 }
 
 /// <summary>
