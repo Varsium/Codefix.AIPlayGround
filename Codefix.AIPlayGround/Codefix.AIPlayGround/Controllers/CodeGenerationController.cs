@@ -262,7 +262,7 @@ public class CodeGenerationController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating code");
-            return BadRequest(new ValidationResult
+            return BadRequest(new Codefix.AIPlayGround.Services.ValidationResult
             {
                 IsValid = false,
                 Errors = new List<string> { ex.Message }

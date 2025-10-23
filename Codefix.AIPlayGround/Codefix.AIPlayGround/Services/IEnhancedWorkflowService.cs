@@ -36,6 +36,16 @@ public interface IEnhancedWorkflowService
     // File Persistence
     Task SaveWorkflowToFileAsync(string workflowId, string filePath);
     Task<Models.WorkflowDefinition> LoadWorkflowFromFileAsync(string filePath);
+    
+    // Microsoft Agent Framework Orchestration
+    Task<WorkflowExecution> ExecuteWorkflowWithOrchestrationAsync(string workflowId, Dictionary<string, object> inputData, CancellationToken cancellationToken = default);
+    Task<WorkflowExecution?> GetWorkflowExecutionAsync(string executionId);
+    Task<bool> CancelWorkflowExecutionAsync(string executionId);
+    Task<List<WorkflowExecution>> GetActiveWorkflowExecutionsAsync();
+    Task<bool> ConfigureWorkflowOrchestrationAsync(string workflowId, WorkflowOrchestrationType orchestrationType, MicrosoftAgentFrameworkOrchestrationConfiguration? orchestrationConfig = null);
+    Task<bool> AddOrchestrationStepAsync(string workflowId, WorkflowOrchestrationStep orchestrationStep);
+    Task<bool> UpdateOrchestrationStepAsync(string workflowId, string stepId, WorkflowOrchestrationStep updatedStep);
+    Task<bool> RemoveOrchestrationStepAsync(string workflowId, string stepId);
     Task<List<string>> GetSavedWorkflowFilesAsync();
     
     // Validation

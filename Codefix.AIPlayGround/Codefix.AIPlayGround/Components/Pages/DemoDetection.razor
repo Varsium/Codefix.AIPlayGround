@@ -1,0 +1,441 @@
+@page "/demo-detection"
+@using Codefix.AIPlayGround.Services
+@inject ICodeDetectionService CodeDetectionService
+@inject IEnhancedCodeGenerationService CodeGenerationService
+@inject ILogger<DemoDetection> Logger
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>Code Detection Demo - AI PlayGround</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="display-6 fw-bold text-primary">
+                        <i class="bi bi-search me-3"></i>Code Detection Demo
+                    </h1>
+                    <p class="lead text-muted">Demonstrating our code detection and generation capabilities</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-lg" @onclick="AnalyzeCodebase" disabled="@isAnalyzing">
+                        @if (isAnalyzing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <text>Analyzing...</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-search me-2"></i>
+                            <text>Analyze Codebase</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (analysisResult != null)
+    {
+        <div class="row">
+            <!-- Analysis Summary -->
+            <div class="col-12 mb-4">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Analysis Complete
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h3 class="text-success">@analysisResult.Apis.Count</h3>
+                                    <p class="text-muted mb-0">APIs Discovered</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h3 class="text-primary">@analysisResult.Models.Count</h3>
+                                    <p class="text-muted mb-0">Models Found</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h3 class="text-info">@analysisResult.Services.Count</h3>
+                                    <p class="text-muted mb-0">Services Detected</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h3 class="text-warning">@analysisResult.Dependencies.Count</h3>
+                                    <p class="text-muted mb-0">Dependencies</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discovered APIs -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-cloud me-2"></i>Discovered APIs (@analysisResult.Apis.Count)
+                        </h5>
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        @if (analysisResult.Apis.Any())
+                        {
+                            @foreach (var api in analysisResult.Apis.Take(10))
+                            {
+                                <div class="border rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">@api.Controller.@api.Action</h6>
+                                            <small class="text-muted">@api.Method @api.Path</small>
+                                        </div>
+                                        <span class="badge bg-@(api.Method == "GET" ? "success" : api.Method == "POST" ? "primary" : api.Method == "PUT" ? "warning" : "danger")">
+                                            @api.Method
+                                        </span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(api.Documentation))
+                                    {
+                                        <p class="text-muted small mt-2 mb-0">@api.Documentation</p>
+                                    }
+                                    @if (api.Parameters.Any())
+                                    {
+                                        <div class="mt-2">
+                                            <small class="text-muted">Parameters:</small>
+                                            <ul class="list-unstyled small mb-0">
+                                                @foreach (var param in api.Parameters.Take(3))
+                                                {
+                                                    <li>• @param.Name (@param.Type)</li>
+                                                }
+                                                @if (api.Parameters.Count > 3)
+                                                {
+                                                    <li>• ... and @(api.Parameters.Count - 3) more</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (analysisResult.Apis.Count > 10)
+                            {
+                                <div class="text-center">
+                                    <small class="text-muted">... and @(analysisResult.Apis.Count - 10) more APIs</small>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">No APIs discovered</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discovered Services -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-gear me-2"></i>Discovered Services (@analysisResult.Services.Count)
+                        </h5>
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        @if (analysisResult.Services.Any())
+                        {
+                            @foreach (var service in analysisResult.Services.Take(10))
+                            {
+                                <div class="border rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">@service.Name</h6>
+                                            <small class="text-muted">@service.Namespace</small>
+                                        </div>
+                                        <span class="badge bg-info">@service.Methods.Count methods</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(service.Documentation))
+                                    {
+                                        <p class="text-muted small mt-2 mb-0">@service.Documentation</p>
+                                    }
+                                    @if (service.Methods.Any())
+                                    {
+                                        <div class="mt-2">
+                                            <small class="text-muted">Methods:</small>
+                                            <ul class="list-unstyled small mb-0">
+                                                @foreach (var method in service.Methods.Take(3))
+                                                {
+                                                    <li>• @method.Name → @method.ReturnType</li>
+                                                }
+                                                @if (service.Methods.Count > 3)
+                                                {
+                                                    <li>• ... and @(service.Methods.Count - 3) more</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (analysisResult.Services.Count > 10)
+                            {
+                                <div class="text-center">
+                                    <small class="text-muted">... and @(analysisResult.Services.Count - 10) more services</small>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">No services discovered</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Generation Demo -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-code-slash me-2"></i>Code Generation Demo
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Generate from Patterns</h6>
+                                <button class="btn btn-outline-primary btn-sm me-2" @onclick="GenerateWorkflowNodes" disabled="@isGenerating">
+                                    @if (isGenerating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-diagram-3 me-1"></i>Workflow Nodes
+                                </button>
+                                <button class="btn btn-outline-success btn-sm me-2" @onclick="GenerateTests" disabled="@isGenerating">
+                                    @if (isGenerating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-check-square me-1"></i>Tests
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" @onclick="GenerateDocumentation" disabled="@isGenerating">
+                                    @if (isGenerating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-file-text me-1"></i>Documentation
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Generate API Client</h6>
+                                <button class="btn btn-outline-warning btn-sm me-2" @onclick="GenerateApiClient" disabled="@isGenerating">
+                                    @if (isGenerating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-cloud me-1"></i>API Client
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="GenerateMigration" disabled="@isGenerating">
+                                    @if (isGenerating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-database me-1"></i>Migration
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generated Code Display -->
+            @if (generatedCode != null)
+            {
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-file-code me-2"></i>Generated Code
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"><code>@generatedCode</code></pre>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">Error</h4>
+                    <p>@errorMessage</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CodeAnalysisResult? analysisResult;
+    private string? generatedCode;
+    private string? errorMessage;
+    private bool isAnalyzing = false;
+    private bool isGenerating = false;
+
+    private async Task AnalyzeCodebase()
+    {
+        try
+        {
+            isAnalyzing = true;
+            errorMessage = null;
+            generatedCode = null;
+
+            Logger.LogInformation("Starting codebase analysis for demo");
+
+            // Analyze the current project directory
+            var projectPath = Directory.GetCurrentDirectory();
+            analysisResult = await CodeDetectionService.AnalyzeCodebaseAsync(projectPath);
+
+            Logger.LogInformation("Codebase analysis completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during codebase analysis");
+            errorMessage = $"Analysis failed: {ex.Message}";
+        }
+        finally
+        {
+            isAnalyzing = false;
+        }
+    }
+
+    private async Task GenerateWorkflowNodes()
+    {
+        if (analysisResult?.Apis == null) return;
+
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+
+            var nodes = await CodeGenerationService.GenerateWorkflowNodesFromApisAsync(analysisResult.Apis);
+            generatedCode = $"// Generated {nodes.Count} workflow nodes from discovered APIs\n\n" +
+                          string.Join("\n\n", nodes.Select(n => 
+                              $"Node: {n.Name}\n" +
+                              $"Type: {n.Type}\n" +
+                              $"Description: {n.Description}\n" +
+                              $"Configuration: {System.Text.Json.JsonSerializer.Serialize(n.Configuration, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })}"));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating workflow nodes");
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task GenerateTests()
+    {
+        if (analysisResult == null) return;
+
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+
+            var projectPath = Directory.GetCurrentDirectory();
+            var result = await CodeGenerationService.GenerateTestsFromPatternsAsync(projectPath, new TestGenerationOptions());
+            generatedCode = result.GeneratedCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating tests");
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task GenerateDocumentation()
+    {
+        if (analysisResult == null) return;
+
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+
+            var projectPath = Directory.GetCurrentDirectory();
+            var result = await CodeGenerationService.GenerateDocumentationFromPatternsAsync(projectPath, new DocumentationOptions());
+            generatedCode = result.GeneratedCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating documentation");
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task GenerateApiClient()
+    {
+        if (analysisResult?.Apis == null) return;
+
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+
+            var result = await CodeGenerationService.GenerateApiClientAsync(analysisResult.Apis, new ApiClientOptions());
+            generatedCode = result.GeneratedCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating API client");
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task GenerateMigration()
+    {
+        if (analysisResult?.Models == null) return;
+
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+
+            var result = await CodeGenerationService.GenerateMigrationFromModelsAsync(analysisResult.Models, new MigrationOptions());
+            generatedCode = result.GeneratedCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating migration");
+            errorMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+}

@@ -56,19 +56,21 @@ A revolutionary platform that bridges the gap between visual workflow design and
 ### Technology Stack
 
 - **Frontend**: Blazor Server/WASM with modern UI components
-- **Backend**: .NET 8 with Entity Framework Core
+- **Backend**: .NET 10 with Entity Framework Core
 - **Database**: SQL Server with workflow persistence
-- **AI Integration**: Multiple LLM providers (OpenAI, Anthropic, etc.)
+- **AI Integration**: OpenAI and Azure OpenAI with Microsoft Agent Framework
 - **Visualization**: Custom canvas with drag-and-drop functionality
 - **Documentation**: Mermaid diagram generation
+- **Authentication**: ASP.NET Core Identity
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- .NET 8 SDK
+- .NET 10 SDK
 - SQL Server (LocalDB or full instance)
 - Visual Studio 2022 or VS Code
+- OpenAI API key or Azure OpenAI credentials
 
 ### Installation
 
@@ -88,12 +90,25 @@ A revolutionary platform that bridges the gap between visual workflow design and
    dotnet ef database update --project Codefix.AIPlayGround
    ```
 
-4. **Run the application**
+4. **Configure API keys** in `appsettings.json`:
+   ```json
+   {
+     "OpenAI": {
+       "ApiKey": "your-openai-api-key"
+     },
+     "AzureOpenAI": {
+       "ApiKey": "your-azure-openai-key",
+       "Endpoint": "https://your-resource.openai.azure.com"
+     }
+   }
+   ```
+
+5. **Run the application**
    ```bash
    dotnet run --project Codefix.AIPlayGround
    ```
 
-5. **Open your browser** to `https://localhost:5001`
+6. **Open your browser** to `https://localhost:5001`
 
 ## 🎮 How It Works
 
@@ -101,11 +116,11 @@ A revolutionary platform that bridges the gap between visual workflow design and
 
 Start with the visual workflow builder:
 
-1. **Drag nodes** from the palette onto the canvas
-2. **Connect nodes** to define data flow and execution order
-3. **Configure agents** with prompts, tools, and settings
-4. **Test workflows** in real-time
-5. **Export to Mermaid** for documentation
+1. **Drag nodes** from the palette onto the canvas ✅
+2. **Connect nodes** to define data flow and execution order ✅
+3. **Configure agents** with prompts, tools, and settings ✅
+4. **Test workflows** in real-time (limited - chat interface available)
+5. **Export to Mermaid** for documentation ✅
 
 **Example Workflow Types:**
 - Customer service chatbots
@@ -131,68 +146,68 @@ public class CustomDataProcessor
 }
 ```
 
-### 3. **Hybrid Magic** - Best of Both Worlds
+### 3. **Hybrid Magic** - Best of Both Worlds (Planned)
 
-The platform automatically:
-- **Detects** new methods and tools in your code
-- **Makes them available** in the visual builder
-- **Generates** visual nodes for your custom functions
-- **Enables** seamless integration between visual and code approaches
+The platform will automatically:
+- **Detect** new methods and tools in your code (not yet implemented)
+- **Make them available** in the visual builder (not yet implemented)
+- **Generate** visual nodes for your custom functions (not yet implemented)
+- **Enable** seamless integration between visual and code approaches (not yet implemented)
 
 ## 🔧 Key Features
 
 ### Visual Workflow Builder
-- **Drag-and-drop interface** for creating complex workflows
-- **Real-time execution** and testing
-- **Mermaid diagram generation** for documentation
-- **Node-based architecture** with multiple agent types
-- **Connection management** with data flow visualization
+- **Drag-and-drop interface** for creating complex workflows ✅
+- **Real-time execution** and testing (limited - chat interface available)
+- **Mermaid diagram generation** for documentation ✅
+- **Node-based architecture** with multiple agent types ✅
+- **Connection management** with data flow visualization ✅
 
 ### Agent Types
-- **LLM Agents** - Large language model integration
-- **Tool Agents** - Execute specific tools and functions
-- **Conditional Agents** - Branch logic based on conditions
-- **Parallel Agents** - Execute multiple tasks simultaneously
-- **Checkpoint Agents** - Save and restore workflow state
-- **MCP Agents** - Model Context Protocol integration
-- **Function Nodes** - Custom code execution
+- **LLM Agents** - Large language model integration ✅ (with OpenAI/Azure OpenAI)
+- **Tool Agents** - Execute specific tools and functions (framework ready)
+- **Conditional Agents** - Branch logic based on conditions (framework ready)
+- **Parallel Agents** - Execute multiple tasks simultaneously (framework ready)
+- **Checkpoint Agents** - Save and restore workflow state (framework ready)
+- **MCP Agents** - Model Context Protocol integration (framework ready)
+- **Function Nodes** - Custom code execution (framework ready)
 
-### Pro-Code Integration
-- **Automatic tool discovery** from codebase
-- **Method signature analysis** for parameter mapping
-- **Real-time synchronization** between code and UI
-- **Custom node generation** for new capabilities
-- **Code generation** from visual workflows
+### Pro-Code Integration (Planned)
+- **Automatic tool discovery** from codebase (not yet implemented)
+- **Method signature analysis** for parameter mapping (not yet implemented)
+- **Real-time synchronization** between code and UI (not yet implemented)
+- **Custom node generation** for new capabilities (not yet implemented)
+- **Code generation** from visual workflows (not yet implemented)
 
 ### Workflow Management
-- **Version control** for workflows
-- **Import/export** capabilities
-- **Template system** for common patterns
-- **Execution monitoring** and logging
-- **Performance metrics** and optimization
+- **Version control** for workflows (basic - database timestamps)
+- **Import/export** capabilities (basic - JSON serialization)
+- **Template system** for common patterns ✅
+- **Execution monitoring** and logging (limited - basic logging)
+- **Performance metrics** and optimization (not yet implemented)
 
 ## 🎯 Use Cases
 
 ### For Business Users (Low-Code)
-- **Process automation** without technical knowledge
-- **Customer service workflows** with AI agents
-- **Data processing pipelines** with visual design
-- **Decision trees** for business logic
-- **Content generation** workflows
+- **Process automation** without technical knowledge (visual design ready)
+- **Customer service workflows** with AI agents (chat interface available)
+- **Data processing pipelines** with visual design (visual design ready)
+- **Decision trees** for business logic (visual design ready)
+- **Content generation** workflows (chat interface available)
 
 ### For Developers (Pro-Code)
-- **Custom tool development** with automatic UI integration
-- **Complex algorithm implementation** with visual testing
-- **API integration** with workflow orchestration
-- **Performance optimization** through hybrid approaches
-- **Code generation** from business requirements
+- **Custom tool development** with automatic UI integration (planned)
+- **Complex algorithm implementation** with visual testing (visual design ready)
+- **API integration** with workflow orchestration (planned)
+- **Performance optimization** through hybrid approaches (planned)
+- **Code generation** from business requirements (planned)
 
 ### For Teams (Hybrid)
-- **Business-Developer collaboration** on the same platform
-- **Rapid prototyping** with visual tools
-- **Production deployment** with code-based optimization
-- **Knowledge transfer** through visual documentation
-- **Iterative development** with both approaches
+- **Business-Developer collaboration** on the same platform (visual design ready)
+- **Rapid prototyping** with visual tools ✅
+- **Production deployment** with code-based optimization (planned)
+- **Knowledge transfer** through visual documentation ✅
+- **Iterative development** with both approaches (visual design ready)
 
 ## 🔮 The Future: Code-Generated Agents
 
@@ -205,14 +220,34 @@ Our ultimate vision is to enable **code generation from visual workflows**:
 
 This creates a true **no-code to pro-code pipeline** where visual design becomes executable code.
 
+## 🎯 Current Implementation Status
+
+### ✅ What's Working Now
+- **Visual Workflow Designer**: Complete drag-and-drop interface with modern UI
+- **Workflow Persistence**: Full database storage with Entity Framework and SQL Server
+- **Agent Chat Interface**: Real-time chat with LLM agents (OpenAI/Azure OpenAI)
+- **Workflow Templates**: Pre-built templates for common workflow patterns
+- **Mermaid Integration**: Generate documentation diagrams from workflows
+- **Authentication**: User management with ASP.NET Core Identity
+- **Modern UI**: Responsive Blazor components with Bootstrap styling
+
+### 🚧 What's In Progress/Planned
+- **Workflow Execution Engine**: Execute workflows step-by-step (framework ready)
+- **Code Detection**: Automatically discover tools from your codebase
+- **Code Generation**: Generate executable code from visual workflows
+- **Real-time Monitoring**: Live execution tracking and performance metrics
+
 ## 🚧 Roadmap to Vision: What's Missing
 
 ### Current Status ✅
-- **Visual Workflow Builder**: Basic drag-and-drop interface with node types
-- **Workflow Persistence**: Database storage and retrieval of workflows
-- **Mermaid Integration**: Basic diagram generation from workflows
-- **Agent Framework**: Core agent types and configuration models
-- **UI Components**: Modern Blazor components with drag-and-drop
+- **Visual Workflow Builder**: ✅ Complete drag-and-drop interface with modern UI
+- **Workflow Persistence**: ✅ Full database storage and retrieval with Entity Framework
+- **Mermaid Integration**: ✅ Basic diagram generation from workflows
+- **Agent Framework**: ✅ Core agent types and configuration models with Microsoft Agent Framework
+- **UI Components**: ✅ Modern Blazor components with drag-and-drop functionality
+- **Chat Service**: ✅ LLM integration with OpenAI/Azure OpenAI support
+- **Workflow Templates**: ✅ Template system with workflow seeding
+- **Database Integration**: ✅ SQL Server with full CRUD operations
 
 ### 🎯 Critical Missing Features (High Priority)
 
@@ -226,19 +261,19 @@ This creates a true **no-code to pro-code pipeline** where visual design becomes
 
 #### 2. **Workflow Execution Engine** ⚡
 - [ ] **Real-time workflow execution** - Execute workflows step by step
-- [ ] **Node execution logic** - Implement actual execution for each agent type
+- [ ] **Node execution logic** - Implement actual execution for each agent type (currently placeholder)
 - [ ] **Data flow management** - Pass data between nodes during execution
 - [ ] **Error handling & recovery** - Robust error handling and retry mechanisms
 - [ ] **Execution monitoring** - Real-time status updates and progress tracking
 - [ ] **Performance metrics** - Execution time, memory usage, success rates
 
 #### 3. **LLM Integration & Agent Execution** 🤖
-- [ ] **OpenAI/Azure OpenAI integration** - Connect to actual LLM providers
+- [x] **OpenAI/Azure OpenAI integration** - ✅ Connected to actual LLM providers
 - [ ] **Prompt template system** - Dynamic prompt generation and management
-- [ ] **Memory management** - Context and conversation memory for agents
+- [x] **Memory management** - ✅ Context and conversation memory for agents
 - [ ] **Tool calling** - Execute discovered tools from LLM agents
-- [ ] **Streaming responses** - Real-time streaming of LLM responses
-- [ ] **Multi-provider support** - Support for multiple LLM providers
+- [x] **Streaming responses** - ✅ Real-time streaming of LLM responses
+- [x] **Multi-provider support** - ✅ Support for OpenAI and Azure OpenAI providers
 
 #### 4. **Code Generation Pipeline** 🏗️
 - [ ] **Workflow-to-code generator** - Convert visual workflows to executable code

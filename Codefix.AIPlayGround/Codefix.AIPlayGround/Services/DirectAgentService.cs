@@ -318,4 +318,78 @@ public class DirectAgentService : IAgentApiService
             return false;
         }
     }
+
+    public async Task<AgentResponse> TestAgentAsync(string agentId, TestAgentRequest request)
+    {
+        try
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents.FindAsync(agentId);
+            
+            if (agent == null)
+            {
+                throw new ArgumentException($"Agent with ID {agentId} not found");
+            }
+
+            // For now, return a mock test result
+            // TODO: Implement actual agent testing logic
+            return new AgentResponse
+            {
+                Id = agent.Id,
+                Name = agent.Name,
+                Description = agent.Description,
+                AgentType = agent.AgentType,
+                Status = agent.Status.ToString(),
+                CreatedAt = agent.CreatedAt,
+                UpdatedAt = agent.UpdatedAt,
+                CreatedBy = agent.CreatedBy
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing agent {AgentId}", agentId);
+            throw;
+        }
+    }
+
+    public async Task<DeploymentResult> DeployAgentAsync(string agentId)
+    {
+        try
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var agent = await context.Agents.FindAsync(agentId);
+            
+            if (agent == null)
+            {
+                return new DeploymentResult
+                {
+                    IsSuccess = false,
+                    Message = $"Agent with ID {agentId} not found"
+                };
+            }
+
+            // For now, return a mock deployment result
+            // TODO: Implement actual agent deployment logic
+            return new DeploymentResult
+            {
+                IsSuccess = true,
+                Message = $"Agent {agent.Name} deployed successfully",
+                DeploymentId = Guid.NewGuid().ToString(),
+                Metadata = new Dictionary<string, object>
+                {
+                    ["agentId"] = agentId,
+                    ["deployedAt"] = DateTime.UtcNow
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deploying agent {AgentId}", agentId);
+            return new DeploymentResult
+            {
+                IsSuccess = false,
+                Message = $"Error deploying agent: {ex.Message}"
+            };
+        }
+    }
 }

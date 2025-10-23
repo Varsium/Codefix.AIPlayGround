@@ -57,13 +57,22 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 // Add OpenAPI and Scalar documentation
 builder.Services.AddOpenApi();
 
-// Add Agent Framework services
-builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentVisualizationService, Codefix.AIPlayGround.Services.AgentVisualizationService>();
+// Add Microsoft Agent Framework visualization service (replaces custom AgentVisualizationService)
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentVisualizationService, Codefix.AIPlayGround.Services.MicrosoftAgentFrameworkVisualizationService>();
+
+// Keep legacy visualization service for comparison/fallback
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentVisualizationService, Codefix.AIPlayGround.Services.AgentVisualizationService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IEnhancedWorkflowService, Codefix.AIPlayGround.Services.EnhancedWorkflowService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentFrameworkService, Codefix.AIPlayGround.Services.AgentFrameworkService>();
 
-// Add Agent Factory service
-builder.Services.AddScoped<Codefix.AIPlayGround.Services.IAgentFactory, Codefix.AIPlayGround.Services.AgentFactory>();
+// Add Microsoft Agent Framework definition service
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IMicrosoftAgentFrameworkDefinitionService, Codefix.AIPlayGround.Services.MicrosoftAgentFrameworkDefinitionService>();
+
+// Add Microsoft Agent Framework orchestration service
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IMicrosoftAgentFrameworkOrchestrationService, Codefix.AIPlayGround.Services.MicrosoftAgentFrameworkOrchestrationService>();
+
+// Add MCP (Model Context Protocol) integration service
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IMCPIntegrationService, Codefix.AIPlayGround.Services.MCPIntegrationService>();
 
 // Add Workflow Seeding service
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IWorkflowSeedingService, Codefix.AIPlayGround.Services.WorkflowSeedingService>();
@@ -79,8 +88,33 @@ builder.Services.AddScoped<Codefix.AIPlayGround.Services.IDashboardApiService, C
 // Add code generation services
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.ICodeGenerationService, Codefix.AIPlayGround.Services.CodeGenerationService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.ICodeExecutionService, Codefix.AIPlayGround.Services.CodeExecutionService>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.ICodeDetectionService, Codefix.AIPlayGround.Services.CodeDetectionService>();
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IEnhancedCodeGenerationService, Codefix.AIPlayGround.Services.EnhancedCodeGenerationService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.SecuritySettings>();
+
+// Add demo services for testing code detection
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IDemoBusinessService, Codefix.AIPlayGround.Services.DemoBusinessService>();
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.SecuritySandboxService>();
+
+// Add workflow execution services - Microsoft Agent Framework implementation
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IWorkflowExecutionService, Codefix.AIPlayGround.Services.MicrosoftAgentFrameworkWorkflowService>();
+
+// Keep legacy workflow execution service for comparison/fallback
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.IWorkflowExecutionService, Codefix.AIPlayGround.Services.WorkflowExecutionService>();
+
+// Add Microsoft Agent Framework node executor (replaces all custom node executors)
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.MicrosoftAgentFrameworkNodeExecutor>();
+
+// Keep legacy node executors for comparison/fallback (commented out)
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.StartNodeExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.EndNodeExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.LLMAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.ToolAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.ConditionalAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.ParallelAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.CheckpointAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.MCPAgentExecutor>();
+// builder.Services.AddScoped<Codefix.AIPlayGround.Services.FunctionNodeExecutor>();
 
 // Add session support for session management
 builder.Services.AddDistributedMemoryCache();
@@ -129,9 +163,9 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(Codefix.AIPlayGround.Client._Imports).Assembly);
+    .AddInteractiveServerRenderMode();
+    // .AddInteractiveWebAssemblyRenderMode()
+    // .AddAdditionalAssemblies(typeof(Codefix.AIPlayGround.Client._Imports).Assembly);
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();

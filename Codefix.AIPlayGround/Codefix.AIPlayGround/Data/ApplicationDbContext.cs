@@ -15,6 +15,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     // Agent Framework Entities
     public DbSet<AgentEntity> Agents { get; set; }
     public DbSet<AgentExecutionEntity> AgentExecutions { get; set; }
+    
+    // Workflow Execution Entities
+    public DbSet<WorkflowExecutionEntity> WorkflowExecutions { get; set; }
+    public DbSet<ExecutionStepEntity> ExecutionSteps { get; set; }
+    public DbSet<ExecutionErrorEntity> ExecutionErrors { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -100,6 +105,34 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                   .WithMany(a => a.Executions)
                   .HasForeignKey(e => e.AgentId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure WorkflowExecutionEntity
+        builder.Entity<WorkflowExecutionEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.WorkflowId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.StartedAt);
+        });
+
+        // Configure ExecutionStepEntity
+        builder.Entity<ExecutionStepEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ExecutionId);
+            entity.HasIndex(e => e.NodeId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.StartedAt);
+        });
+
+        // Configure ExecutionErrorEntity
+        builder.Entity<ExecutionErrorEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ExecutionId);
+            entity.HasIndex(e => e.NodeId);
+            entity.HasIndex(e => e.OccurredAt);
         });
 
     }

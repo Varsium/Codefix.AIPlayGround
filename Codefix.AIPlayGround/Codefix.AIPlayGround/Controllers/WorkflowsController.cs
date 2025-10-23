@@ -9,11 +9,13 @@ namespace Codefix.AIPlayGround.Controllers;
 public class WorkflowsController : ControllerBase
 {
     private readonly IEnhancedWorkflowService _workflowService;
+    private readonly IWorkflowExecutionService _executionService;
     private readonly ILogger<WorkflowsController> _logger;
 
-    public WorkflowsController(IEnhancedWorkflowService workflowService, ILogger<WorkflowsController> logger)
+    public WorkflowsController(IEnhancedWorkflowService workflowService, IWorkflowExecutionService executionService, ILogger<WorkflowsController> logger)
     {
         _workflowService = workflowService;
+        _executionService = executionService;
         _logger = logger;
     }
 
@@ -197,6 +199,158 @@ public class WorkflowsController : ControllerBase
             return StatusCode(500, "Internal server error");
         }
     }
+
+    // POST: api/workflows/{id}/execute
+    [HttpPost("{id}/execute")]
+    public async Task<ActionResult<string>> ExecuteWorkflow(string id, [FromBody] ExecuteWorkflowRequest request)
+    {
+        try
+        {
+            var executionId = await _executionService.StartExecutionAsync(id, request.InputData);
+            return Ok(new { executionId });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing workflow {WorkflowId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // GET: api/workflows/{id}/executions
+    [HttpGet("{id}/executions")]
+    public async Task<ActionResult<List<WorkflowExecution>>> GetWorkflowExecutions(string id)
+    {
+        try
+        {
+            var executions = await _executionService.GetWorkflowExecutionsAsync(id);
+            return Ok(executions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting executions for workflow {WorkflowId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // GET: api/workflows/executions/{executionId}
+    [HttpGet("executions/{executionId}")]
+    public async Task<ActionResult<WorkflowExecution>> GetExecutionStatus(string executionId)
+    {
+        try
+        {
+            var execution = await _executionService.GetExecutionStatusAsync(executionId);
+            if (execution == null)
+            {
+                return NotFound();
+            }
+            return Ok(execution);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting execution status {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // GET: api/workflows/executions/{executionId}/steps
+    [HttpGet("executions/{executionId}/steps")]
+    public async Task<ActionResult<List<ExecutionStep>>> GetExecutionSteps(string executionId)
+    {
+        try
+        {
+            var steps = await _executionService.GetExecutionStepsAsync(executionId);
+            return Ok(steps);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting execution steps {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // GET: api/workflows/executions/{executionId}/errors
+    [HttpGet("executions/{executionId}/errors")]
+    public async Task<ActionResult<List<ExecutionError>>> GetExecutionErrors(string executionId)
+    {
+        try
+        {
+            var errors = await _executionService.GetExecutionErrorsAsync(executionId);
+            return Ok(errors);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting execution errors {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // POST: api/workflows/executions/{executionId}/pause
+    [HttpPost("executions/{executionId}/pause")]
+    public async Task<ActionResult> PauseExecution(string executionId)
+    {
+        try
+        {
+            var result = await _executionService.PauseExecutionAsync(executionId);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error pausing execution {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // POST: api/workflows/executions/{executionId}/resume
+    [HttpPost("executions/{executionId}/resume")]
+    public async Task<ActionResult> ResumeExecution(string executionId)
+    {
+        try
+        {
+            var result = await _executionService.ResumeExecutionAsync(executionId);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resuming execution {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // POST: api/workflows/executions/{executionId}/stop
+    [HttpPost("executions/{executionId}/stop")]
+    public async Task<ActionResult> StopExecution(string executionId)
+    {
+        try
+        {
+            var result = await _executionService.StopExecutionAsync(executionId);
+            if (!result)
+            {
+                return NotFound();
+            }
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error stopping execution {ExecutionId}", executionId);
+            return StatusCode(500, "Internal server error");
+        }
+    }
 }
 
 public class CreateWorkflowRequest
@@ -210,4 +364,9 @@ public class CreateWorkflowFromTemplateRequest
     public string TemplateName { get; set; } = "";
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
+}
+
+public class ExecuteWorkflowRequest
+{
+    public Dictionary<string, object>? InputData { get; set; }
 }

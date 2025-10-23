@@ -10,11 +10,16 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<EnhancedWorkflowService> _logger;
+    private readonly IMicrosoftAgentFrameworkOrchestrationService _orchestrationService;
 
-    public EnhancedWorkflowService(ApplicationDbContext context, ILogger<EnhancedWorkflowService> logger)
+    public EnhancedWorkflowService(
+        ApplicationDbContext context, 
+        ILogger<EnhancedWorkflowService> logger,
+        IMicrosoftAgentFrameworkOrchestrationService orchestrationService)
     {
         _context = context;
         _logger = logger;
+        _orchestrationService = orchestrationService;
     }
 
     // Workflow Management
@@ -1015,6 +1020,231 @@ public class EnhancedWorkflowService : IEnhancedWorkflowService
         };
 
         return workflow;
+    }
+
+    // Microsoft Agent Framework Orchestration Methods
+
+    /// <summary>
+    /// Execute workflow using Microsoft Agent Framework orchestration
+    /// </summary>
+    public async Task<WorkflowExecution> ExecuteWorkflowWithOrchestrationAsync(
+        string workflowId, 
+        Dictionary<string, object> inputData, 
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Executing workflow {WorkflowId} with Microsoft Agent Framework orchestration", workflowId);
+
+            var workflow = await GetWorkflowAsync(workflowId);
+            if (workflow == null)
+            {
+                throw new ArgumentException($"Workflow {workflowId} not found");
+            }
+
+            // Ensure workflow has orchestration configuration
+            if (workflow.OrchestrationConfig == null)
+            {
+                workflow.OrchestrationConfig = new MicrosoftAgentFrameworkOrchestrationConfiguration
+                {
+                    OrchestrationType = workflow.OrchestrationType.ToString().ToLower(),
+                    MaxConcurrentExecutions = 5,
+                    ExecutionTimeout = TimeSpan.FromMinutes(10)
+                };
+            }
+
+            // Execute using orchestration service
+            var execution = await _orchestrationService.ExecuteWorkflowAsync(workflow, inputData, cancellationToken);
+
+            _logger.LogInformation("Completed workflow {WorkflowId} execution with status {Status}", 
+                workflowId, execution.Status);
+
+            return execution;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing workflow {WorkflowId} with orchestration", workflowId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get workflow execution by ID
+    /// </summary>
+    public async Task<WorkflowExecution?> GetWorkflowExecutionAsync(string executionId)
+    {
+        try
+        {
+            return _orchestrationService.GetActiveExecution(executionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting workflow execution {ExecutionId}", executionId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Cancel workflow execution
+    /// </summary>
+    public async Task<bool> CancelWorkflowExecutionAsync(string executionId)
+    {
+        try
+        {
+            _logger.LogInformation("Cancelling workflow execution {ExecutionId}", executionId);
+            return await _orchestrationService.CancelExecutionAsync(executionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling workflow execution {ExecutionId}", executionId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get all active workflow executions
+    /// </summary>
+    public async Task<List<WorkflowExecution>> GetActiveWorkflowExecutionsAsync()
+    {
+        try
+        {
+            return _orchestrationService.GetActiveExecutions();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting active workflow executions");
+            return new List<WorkflowExecution>();
+        }
+    }
+
+    /// <summary>
+    /// Configure workflow orchestration settings
+    /// </summary>
+    public async Task<bool> ConfigureWorkflowOrchestrationAsync(
+        string workflowId, 
+        WorkflowOrchestrationType orchestrationType,
+        MicrosoftAgentFrameworkOrchestrationConfiguration? orchestrationConfig = null)
+    {
+        try
+        {
+            _logger.LogInformation("Configuring orchestration for workflow {WorkflowId} with type {OrchestrationType}", 
+                workflowId, orchestrationType);
+
+            var workflow = await GetWorkflowAsync(workflowId);
+            if (workflow == null)
+            {
+                return false;
+            }
+
+            workflow.OrchestrationType = orchestrationType;
+            workflow.OrchestrationConfig = orchestrationConfig ?? new MicrosoftAgentFrameworkOrchestrationConfiguration
+            {
+                OrchestrationType = orchestrationType.ToString().ToLower(),
+                MaxConcurrentExecutions = 5,
+                ExecutionTimeout = TimeSpan.FromMinutes(10)
+            };
+
+            await UpdateWorkflowAsync(workflow);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error configuring orchestration for workflow {WorkflowId}", workflowId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Add orchestration step to workflow
+    /// </summary>
+    public async Task<bool> AddOrchestrationStepAsync(
+        string workflowId, 
+        WorkflowOrchestrationStep orchestrationStep)
+    {
+        try
+        {
+            _logger.LogInformation("Adding orchestration step to workflow {WorkflowId}", workflowId);
+
+            var workflow = await GetWorkflowAsync(workflowId);
+            if (workflow == null)
+            {
+                return false;
+            }
+
+            workflow.OrchestrationSteps.Add(orchestrationStep);
+            await UpdateWorkflowAsync(workflow);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding orchestration step to workflow {WorkflowId}", workflowId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Update orchestration step in workflow
+    /// </summary>
+    public async Task<bool> UpdateOrchestrationStepAsync(
+        string workflowId, 
+        string stepId, 
+        WorkflowOrchestrationStep updatedStep)
+    {
+        try
+        {
+            _logger.LogInformation("Updating orchestration step {StepId} in workflow {WorkflowId}", stepId, workflowId);
+
+            var workflow = await GetWorkflowAsync(workflowId);
+            if (workflow == null)
+            {
+                return false;
+            }
+
+            var stepIndex = workflow.OrchestrationSteps.FindIndex(s => s.Id == stepId);
+            if (stepIndex == -1)
+            {
+                return false;
+            }
+
+            workflow.OrchestrationSteps[stepIndex] = updatedStep;
+            await UpdateWorkflowAsync(workflow);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating orchestration step {StepId} in workflow {WorkflowId}", stepId, workflowId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Remove orchestration step from workflow
+    /// </summary>
+    public async Task<bool> RemoveOrchestrationStepAsync(string workflowId, string stepId)
+    {
+        try
+        {
+            _logger.LogInformation("Removing orchestration step {StepId} from workflow {WorkflowId}", stepId, workflowId);
+
+            var workflow = await GetWorkflowAsync(workflowId);
+            if (workflow == null)
+            {
+                return false;
+            }
+
+            var removed = workflow.OrchestrationSteps.RemoveAll(s => s.Id == stepId) > 0;
+            if (removed)
+            {
+                await UpdateWorkflowAsync(workflow);
+            }
+
+            return removed;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing orchestration step {StepId} from workflow {WorkflowId}", stepId, workflowId);
+            return false;
+        }
     }
 }
 

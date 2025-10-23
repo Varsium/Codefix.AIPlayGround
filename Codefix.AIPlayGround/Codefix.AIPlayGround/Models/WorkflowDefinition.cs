@@ -10,6 +10,12 @@ public class WorkflowDefinition
     public List<EnhancedWorkflowConnection> Connections { get; set; } = new();
     public WorkflowMetadata Metadata { get; set; } = new();
     public WorkflowSettings Settings { get; set; } = new();
+    
+    // Microsoft Agent Framework orchestration configuration
+    public MicrosoftAgentFrameworkOrchestrationConfiguration? OrchestrationConfig { get; set; }
+    public WorkflowOrchestrationType OrchestrationType { get; set; } = WorkflowOrchestrationType.Sequential;
+    public List<WorkflowOrchestrationStep> OrchestrationSteps { get; set; } = new();
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public string CreatedBy { get; set; } = string.Empty;
@@ -94,4 +100,106 @@ public class ExecutionError
     public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
     public string? NodeId { get; set; }
     public Dictionary<string, object> Context { get; set; } = new();
+}
+
+/// <summary>
+/// Microsoft Agent Framework workflow orchestration types
+/// Based on official framework patterns: Sequential, Concurrent, GroupChat, Handoff, Magentic
+/// </summary>
+public enum WorkflowOrchestrationType
+{
+    /// <summary>
+    /// Sequential orchestration - agents execute in pipeline order
+    /// </summary>
+    Sequential,
+    
+    /// <summary>
+    /// Concurrent orchestration - agents execute in parallel
+    /// </summary>
+    Concurrent,
+    
+    /// <summary>
+    /// Group chat orchestration - agents collaborate in group conversation
+    /// </summary>
+    GroupChat,
+    
+    /// <summary>
+    /// Handoff orchestration - control passes dynamically between agents
+    /// </summary>
+    Handoff,
+    
+    /// <summary>
+    /// Magentic orchestration - dynamic agent selection based on context
+    /// </summary>
+    Magentic,
+    
+    /// <summary>
+    /// Custom orchestration - user-defined orchestration pattern
+    /// </summary>
+    Custom
+}
+
+/// <summary>
+/// Microsoft Agent Framework workflow orchestration step
+/// Defines how agents are orchestrated within the workflow
+/// </summary>
+public class WorkflowOrchestrationStep
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int Order { get; set; }
+    public List<string> NodeIds { get; set; } = new();
+    public WorkflowOrchestrationStepType StepType { get; set; } = WorkflowOrchestrationStepType.AgentExecution;
+    public Dictionary<string, object> Configuration { get; set; } = new();
+    public WorkflowOrchestrationCondition? Condition { get; set; }
+    public bool IsEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// Microsoft Agent Framework workflow orchestration step types
+/// </summary>
+public enum WorkflowOrchestrationStepType
+{
+    /// <summary>
+    /// Execute agents in this step
+    /// </summary>
+    AgentExecution,
+    
+    /// <summary>
+    /// Wait for condition before proceeding
+    /// </summary>
+    WaitCondition,
+    
+    /// <summary>
+    /// Merge results from parallel executions
+    /// </summary>
+    MergeResults,
+    
+    /// <summary>
+    /// Branch execution based on condition
+    /// </summary>
+    Branch,
+    
+    /// <summary>
+    /// Loop execution
+    /// </summary>
+    Loop,
+    
+    /// <summary>
+    /// Custom step type
+    /// </summary>
+    Custom
+}
+
+/// <summary>
+/// Microsoft Agent Framework workflow orchestration condition
+/// </summary>
+public class WorkflowOrchestrationCondition
+{
+    public string Expression { get; set; } = string.Empty;
+    public string ConditionType { get; set; } = "javascript"; // javascript, csharp, jsonpath
+    public Dictionary<string, object> Parameters { get; set; } = new();
+    public bool IsEnabled { get; set; } = true;
+    public string? ErrorMessage { get; set; }
 }

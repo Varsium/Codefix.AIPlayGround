@@ -16,7 +16,6 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.9.0" />
     <PackageReference Include="Z.Blazor.Diagrams" Version="3.0.3" />
     <ProjectReference Include="..\..\Codefix.AIPlayGround.ServiceDefaults\Codefix.AIPlayGround.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\Codefix.AIPlayGround.Client\Codefix.AIPlayGround.Client.csproj" />
     <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251009.1" />
     <PackageReference Include="Microsoft.Agents.AI.A2A" Version="1.0.0-preview.251009.1" />
     <PackageReference Include="Microsoft.Agents.AI.Abstractions" Version="1.0.0-preview.251009.1" />
