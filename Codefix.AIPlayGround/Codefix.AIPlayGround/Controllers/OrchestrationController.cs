@@ -14,15 +14,18 @@ public class OrchestrationController : ControllerBase
 {
     private readonly IMicrosoftAgentFrameworkOrchestrationService _orchestrationService;
     private readonly IEnhancedWorkflowService _workflowService;
+    private readonly IUnifiedAIProviderService _aiProviderService;
     private readonly ILogger<OrchestrationController> _logger;
 
     public OrchestrationController(
         IMicrosoftAgentFrameworkOrchestrationService orchestrationService,
         IEnhancedWorkflowService workflowService,
+        IUnifiedAIProviderService aiProviderService,
         ILogger<OrchestrationController> logger)
     {
         _orchestrationService = orchestrationService;
         _workflowService = workflowService;
+        _aiProviderService = aiProviderService;
         _logger = logger;
     }
 
@@ -239,7 +242,7 @@ public class OrchestrationController : ControllerBase
             })
             .ToList();
 
-        return Ok(new OrchestrationTypesResponse { Types = types });
+        return Ok(new OrchestrationTypesResponse { Types = types.Cast<object>().ToList() });
     }
 
     /// <summary>
@@ -256,7 +259,7 @@ public class OrchestrationController : ControllerBase
             })
             .ToList();
 
-        return Ok(new OrchestrationStepTypesResponse { StepTypes = stepTypes });
+        return Ok(new OrchestrationStepTypesResponse { StepTypes = stepTypes.Cast<object>().ToList() });
     }
 
     private string GetOrchestrationTypeDescription(WorkflowOrchestrationType type)
@@ -284,6 +287,216 @@ public class OrchestrationController : ControllerBase
             WorkflowOrchestrationStepType.Loop => "Loop execution",
             WorkflowOrchestrationStepType.Custom => "Custom step type",
             _ => "Unknown step type"
+        };
+    }
+
+    // ===== AI Provider Endpoints =====
+
+    /// <summary>
+    /// Create AI agent with specified provider (PeerLLM, Ollama, OpenAI, etc.)
+    /// </summary>
+    [HttpPost("ai-agent")]
+    public async Task<ActionResult<MicrosoftAgentFrameworkEntity>> CreateAIAgent(
+        [FromBody] CreateAIAgentRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Creating AI agent {AgentName} with provider {ProviderType}", 
+                request.Name, request.ProviderType);
+
+            var agent = await _aiProviderService.CreateAgentAsync(
+                request.Name,
+                request.Description,
+                request.ProviderType,
+                request.ModelName,
+                request.ProviderConfig);
+
+            return Ok(agent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating AI agent {AgentName}", request.Name);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Chat with AI agent using specified provider
+    /// </summary>
+    [HttpPost("ai-agent/{agentId}/chat")]
+    public async Task<ActionResult<AIProviderResponse>> ChatWithAIAgent(
+        string agentId,
+        [FromBody] ChatWithAIAgentRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Chatting with AI agent {AgentId}", agentId);
+
+            var response = await _aiProviderService.ExecuteChatAsync(
+                agentId,
+                request.Message,
+                request.Context);
+
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "AI agent {AgentId} not found", agentId);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error chatting with AI agent {AgentId}", agentId);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Stream chat response from AI agent
+    /// </summary>
+    [HttpPost("ai-agent/{agentId}/chat/stream")]
+    public async Task<IActionResult> StreamChatWithAIAgent(
+        string agentId,
+        [FromBody] ChatWithAIAgentRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Streaming chat with AI agent {AgentId}", agentId);
+
+            var stream = _aiProviderService.StreamChatAsync(agentId, request.Message, request.Context);
+            
+            return new StreamingResult(stream);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "AI agent {AgentId} not found", agentId);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error streaming chat with AI agent {AgentId}", agentId);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get available models for AI provider
+    /// </summary>
+    [HttpGet("ai-provider/{providerType}/models")]
+    public async Task<ActionResult<List<string>>> GetAvailableModels(AIProviderType providerType)
+    {
+        try
+        {
+            var models = await _aiProviderService.GetAvailableModelsAsync(providerType);
+            return Ok(models);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting models for provider {ProviderType}", providerType);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Test AI provider connection
+    /// </summary>
+    [HttpPost("ai-provider/{providerType}/test")]
+    public async Task<ActionResult<AIProviderTestResult>> TestAIProvider(
+        AIProviderType providerType,
+        [FromBody] TestAIProviderRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Testing AI provider {ProviderType} with model {ModelName}", 
+                providerType, request.ModelName);
+
+            var result = await _aiProviderService.TestProviderAsync(providerType, request.ModelName);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing AI provider {ProviderType}", providerType);
+            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get all supported AI providers
+    /// </summary>
+    [HttpGet("ai-providers")]
+    public ActionResult<AIProvidersResponse> GetAIProviders()
+    {
+        var providers = Enum.GetValues<AIProviderType>()
+            .Select(p => new
+            {
+                Type = p.ToString(),
+                Name = GetProviderDisplayName(p),
+                Description = GetProviderDescription(p),
+                SupportsStreaming = GetProviderSupportsStreaming(p),
+                SupportsTools = GetProviderSupportsTools(p)
+            })
+            .ToList();
+
+        return Ok(new AIProvidersResponse { Providers = providers.Cast<object>().ToList() });
+    }
+
+    private string GetProviderDisplayName(AIProviderType providerType)
+    {
+        return providerType switch
+        {
+            AIProviderType.OpenAI => "OpenAI",
+            AIProviderType.AzureOpenAI => "Azure OpenAI",
+            AIProviderType.Anthropic => "Anthropic Claude",
+            AIProviderType.PeerLLM => "PeerLLM (Decentralized)",
+            AIProviderType.Ollama => "Ollama (Local)",
+            AIProviderType.GoogleAI => "Google AI",
+            AIProviderType.Custom => "Custom Provider",
+            _ => providerType.ToString()
+        };
+    }
+
+    private string GetProviderDescription(AIProviderType providerType)
+    {
+        return providerType switch
+        {
+            AIProviderType.OpenAI => "OpenAI's GPT models via API",
+            AIProviderType.AzureOpenAI => "OpenAI models via Azure",
+            AIProviderType.Anthropic => "Anthropic's Claude models",
+            AIProviderType.PeerLLM => "Decentralized AI network with community models",
+            AIProviderType.Ollama => "Local AI models for privacy and offline use",
+            AIProviderType.GoogleAI => "Google's Gemini models",
+            AIProviderType.Custom => "Custom AI provider implementation",
+            _ => "Unknown provider"
+        };
+    }
+
+    private bool GetProviderSupportsStreaming(AIProviderType providerType)
+    {
+        return providerType switch
+        {
+            AIProviderType.OpenAI => true,
+            AIProviderType.AzureOpenAI => true,
+            AIProviderType.Anthropic => true,
+            AIProviderType.PeerLLM => true,
+            AIProviderType.Ollama => true,
+            AIProviderType.GoogleAI => true,
+            AIProviderType.Custom => true,
+            _ => false
+        };
+    }
+
+    private bool GetProviderSupportsTools(AIProviderType providerType)
+    {
+        return providerType switch
+        {
+            AIProviderType.OpenAI => true,
+            AIProviderType.AzureOpenAI => true,
+            AIProviderType.Anthropic => true,
+            AIProviderType.PeerLLM => true,
+            AIProviderType.Ollama => false, // Ollama typically doesn't support function calling
+            AIProviderType.GoogleAI => true,
+            AIProviderType.Custom => true,
+            _ => false
         };
     }
 }
@@ -321,4 +534,68 @@ public class OrchestrationTypesResponse
 public class OrchestrationStepTypesResponse
 {
     public List<object> StepTypes { get; set; } = new();
+}
+
+/// <summary>
+/// Create AI agent request DTO
+/// </summary>
+public class CreateAIAgentRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public AIProviderType ProviderType { get; set; }
+    public string ModelName { get; set; } = string.Empty;
+    public Dictionary<string, object>? ProviderConfig { get; set; }
+}
+
+/// <summary>
+/// Chat with AI agent request DTO
+/// </summary>
+public class ChatWithAIAgentRequest
+{
+    public string Message { get; set; } = string.Empty;
+    public Dictionary<string, object>? Context { get; set; }
+}
+
+/// <summary>
+/// Test AI provider request DTO
+/// </summary>
+public class TestAIProviderRequest
+{
+    public string ModelName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// AI providers response DTO
+/// </summary>
+public class AIProvidersResponse
+{
+    public List<object> Providers { get; set; } = new();
+}
+
+/// <summary>
+/// Streaming result for async enumerable responses
+/// </summary>
+public class StreamingResult : IActionResult
+{
+    private readonly IAsyncEnumerable<string> _stream;
+
+    public StreamingResult(IAsyncEnumerable<string> stream)
+    {
+        _stream = stream;
+    }
+
+    public async Task ExecuteResultAsync(ActionContext context)
+    {
+        var response = context.HttpContext.Response;
+        response.ContentType = "text/plain";
+        response.Headers.Add("Cache-Control", "no-cache");
+        response.Headers.Add("Connection", "keep-alive");
+
+        await foreach (var chunk in _stream)
+        {
+            await response.WriteAsync(chunk);
+            await response.Body.FlushAsync();
+        }
+    }
 }

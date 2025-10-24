@@ -1,0 +1,391 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="execution-logs">
+    <div class="logs-header">
+        <h6><i class="bi bi-journal-text me-2"></i>Execution Logs</h6>
+        <div class="logs-controls">
+            <div class="log-filters">
+                <select class="form-select form-select-sm" @onchange="OnLogLevelChanged">
+                    <option value="all">All Levels</option>
+                    <option value="debug">Debug</option>
+                    <option value="info">Info</option>
+                    <option value="warn">Warning</option>
+                    <option value="error">Error</option>
+                </select>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearLogs">
+                <i class="bi bi-trash"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ExportLogs">
+                <i class="bi bi-download"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleAutoScroll">
+                <i class="bi @(autoScroll ? "bi-pause" : "bi-play")"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="logs-content" @ref="logsContainerRef">
+        @foreach (var log in GetFilteredLogs())
+        {
+            <div class="log-entry @GetLogClass(log.Level)">
+                <div class="log-header">
+                    <div class="log-level">
+                        <i class="bi @GetLogIcon(log.Level)"></i>
+                        <span>@log.Level.ToUpper()</span>
+                    </div>
+                    <div class="log-timestamp">@log.Timestamp.ToString("HH:mm:ss.fff")</div>
+                    <div class="log-node">@log.NodeName</div>
+                </div>
+                <div class="log-message">@log.Message</div>
+                @if (!string.IsNullOrEmpty(log.Details))
+                {
+                    <div class="log-details">
+                        <pre>@log.Details</pre>
+                    </div>
+                }
+                @if (log.Properties?.Any() == true)
+                {
+                    <div class="log-properties">
+                        @foreach (var prop in log.Properties)
+                        {
+                            <div class="log-property">
+                                <span class="prop-key">@prop.Key:</span>
+                                <span class="prop-value">@prop.Value</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .execution-logs {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #252526;
+        color: #cccccc;
+    }
+
+    .logs-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .logs-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .logs-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .log-filters select {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        color: #cccccc;
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+
+    .logs-content {
+        flex: 1;
+        overflow: auto;
+        padding: 8px 0;
+    }
+
+    .log-entry {
+        padding: 8px 16px;
+        border-bottom: 1px solid #3e3e42;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 12px;
+    }
+
+    .log-entry:last-child {
+        border-bottom: none;
+    }
+
+    .log-entry.debug {
+        background: rgba(0, 120, 212, 0.05);
+    }
+
+    .log-entry.info {
+        background: rgba(40, 167, 69, 0.05);
+    }
+
+    .log-entry.warn {
+        background: rgba(255, 193, 7, 0.05);
+    }
+
+    .log-entry.error {
+        background: rgba(220, 53, 69, 0.05);
+    }
+
+    .log-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 4px;
+    }
+
+    .log-level {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+        min-width: 60px;
+    }
+
+    .log-level.debug {
+        color: #0078d4;
+    }
+
+    .log-level.info {
+        color: #28a745;
+    }
+
+    .log-level.warn {
+        color: #ffc107;
+    }
+
+    .log-level.error {
+        color: #dc3545;
+    }
+
+    .log-timestamp {
+        color: #888888;
+        font-size: 11px;
+        min-width: 80px;
+    }
+
+    .log-node {
+        color: #0078d4;
+        font-weight: 500;
+        min-width: 100px;
+    }
+
+    .log-message {
+        color: #ffffff;
+        margin-bottom: 4px;
+        word-break: break-word;
+    }
+
+    .log-details {
+        background: #1e1e1e;
+        border: 1px solid #3e3e42;
+        border-radius: 4px;
+        padding: 8px;
+        margin: 4px 0;
+    }
+
+    .log-details pre {
+        margin: 0;
+        color: #cccccc;
+        font-size: 11px;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .log-properties {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .log-property {
+        display: flex;
+        gap: 4px;
+        font-size: 11px;
+    }
+
+    .prop-key {
+        color: #888888;
+        min-width: 80px;
+    }
+
+    .prop-value {
+        color: #cccccc;
+        word-break: break-all;
+    }
+</style>
+
+@code {
+    [Parameter] public object? ExecutionState { get; set; }
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private ElementReference logsContainerRef;
+    private string selectedLogLevel = "all";
+    private bool autoScroll = true;
+
+    private class LogEntry
+    {
+        public string Level { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public string NodeName { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string Details { get; set; } = "";
+        public Dictionary<string, string>? Properties { get; set; }
+    }
+
+    private List<LogEntry> GetFilteredLogs()
+    {
+        var logs = GetSampleLogs();
+        
+        if (selectedLogLevel != "all")
+        {
+            logs = logs.Where(l => l.Level == selectedLogLevel).ToList();
+        }
+        
+        return logs;
+    }
+
+    private List<LogEntry> GetSampleLogs()
+    {
+        return new List<LogEntry>
+        {
+            new() 
+            { 
+                Level = "info", 
+                Timestamp = DateTime.Now.AddSeconds(-30), 
+                NodeName = "Start Node", 
+                Message = "Workflow execution started",
+                Properties = new Dictionary<string, string>
+                {
+                    { "workflow_id", "wf_12345" },
+                    { "user_id", "user_67890" }
+                }
+            },
+            new() 
+            { 
+                Level = "debug", 
+                Timestamp = DateTime.Now.AddSeconds(-25), 
+                NodeName = "LLM Agent", 
+                Message = "Initializing LLM agent with configuration",
+                Details = "{\n  \"model\": \"gpt-4\",\n  \"temperature\": 0.7,\n  \"max_tokens\": 1000\n}"
+            },
+            new() 
+            { 
+                Level = "info", 
+                Timestamp = DateTime.Now.AddSeconds(-20), 
+                NodeName = "LLM Agent", 
+                Message = "Processing user input",
+                Properties = new Dictionary<string, string>
+                {
+                    { "input_length", "156" },
+                    { "token_count", "42" }
+                }
+            },
+            new() 
+            { 
+                Level = "warn", 
+                Timestamp = DateTime.Now.AddSeconds(-15), 
+                NodeName = "LLM Agent", 
+                Message = "High token usage detected",
+                Properties = new Dictionary<string, string>
+                {
+                    { "current_tokens", "1800" },
+                    { "max_tokens", "2000" },
+                    { "usage_percent", "90%" }
+                }
+            },
+            new() 
+            { 
+                Level = "info", 
+                Timestamp = DateTime.Now.AddSeconds(-10), 
+                NodeName = "Tool Agent", 
+                Message = "Executing database query",
+                Properties = new Dictionary<string, string>
+                {
+                    { "query_type", "SELECT" },
+                    { "table", "users" },
+                    { "execution_time", "45ms" }
+                }
+            },
+            new() 
+            { 
+                Level = "error", 
+                Timestamp = DateTime.Now.AddSeconds(-5), 
+                NodeName = "Tool Agent", 
+                Message = "Database connection failed",
+                Details = "System.Data.SqlClient.SqlException (0x80131904): A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections.",
+                Properties = new Dictionary<string, string>
+                {
+                    { "error_code", "0x80131904" },
+                    { "retry_count", "3" },
+                    { "connection_string", "Server=localhost;Database=..." }
+                }
+            },
+            new() 
+            { 
+                Level = "debug", 
+                Timestamp = DateTime.Now.AddSeconds(-2), 
+                NodeName = "Tool Agent", 
+                Message = "Retrying database connection",
+                Properties = new Dictionary<string, string>
+                {
+                    { "retry_attempt", "1" },
+                    { "max_retries", "3" }
+                }
+            }
+        };
+    }
+
+    private string GetLogClass(string level)
+    {
+        return level.ToLower();
+    }
+
+    private string GetLogIcon(string level)
+    {
+        return level.ToLower() switch
+        {
+            "debug" => "bi-bug",
+            "info" => "bi-info-circle",
+            "warn" => "bi-exclamation-triangle",
+            "error" => "bi-x-circle",
+            _ => "bi-circle"
+        };
+    }
+
+    private void OnLogLevelChanged(ChangeEventArgs e)
+    {
+        selectedLogLevel = e.Value?.ToString() ?? "all";
+        StateHasChanged();
+    }
+
+    private void ClearLogs()
+    {
+        // Implementation for clearing logs
+    }
+
+    private void ExportLogs()
+    {
+        // Implementation for exporting logs
+    }
+
+    private void ToggleAutoScroll()
+    {
+        autoScroll = !autoScroll;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (autoScroll && logsContainerRef.Id != null)
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", logsContainerRef);
+        }
+    }
+}

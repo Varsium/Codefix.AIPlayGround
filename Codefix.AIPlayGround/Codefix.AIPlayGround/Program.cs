@@ -74,6 +74,22 @@ builder.Services.AddScoped<Codefix.AIPlayGround.Services.IMicrosoftAgentFramewor
 // Add MCP (Model Context Protocol) integration service
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IMCPIntegrationService, Codefix.AIPlayGround.Services.MCPIntegrationService>();
 
+// Add unified AI provider service (replaces separate PeerLLM service)
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IUnifiedAIProviderService, Codefix.AIPlayGround.Services.UnifiedAIProviderService>();
+
+// Add local model integration services
+// Docker Model Runner - for Docker-based AI models
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IDockerModelRunnerService, Codefix.AIPlayGround.Services.DockerModelRunnerService>();
+
+// Ollama - for local models (Llama2, Mistral, CodeLlama, OpenLLaMA, etc.)
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IOllamaIntegrationService, Codefix.AIPlayGround.Services.OllamaIntegrationService>();
+
+// PeerLLM - for decentralized AI models
+builder.Services.AddScoped<Codefix.AIPlayGround.Services.IPeerLLMIntegrationService, Codefix.AIPlayGround.Services.PeerLLMIntegrationService>();
+
+// HttpClient factory for making HTTP requests to local model providers
+builder.Services.AddHttpClient();
+
 // Add Workflow Seeding service
 builder.Services.AddScoped<Codefix.AIPlayGround.Services.IWorkflowSeedingService, Codefix.AIPlayGround.Services.WorkflowSeedingService>();
 

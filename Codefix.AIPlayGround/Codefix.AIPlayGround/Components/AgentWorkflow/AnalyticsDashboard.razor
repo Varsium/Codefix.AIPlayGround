@@ -1,0 +1,658 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="analytics-dashboard">
+    <div class="dashboard-header">
+        <h5><i class="bi bi-graph-up me-2"></i>Analytics Dashboard</h5>
+        <div class="dashboard-controls">
+            <select class="form-select form-select-sm" @onchange="OnTimeRangeChanged">
+                <option value="1h">Last Hour</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshData">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+        <!-- Key Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Total Requests</span>
+                    <i class="bi bi-arrow-up text-success"></i>
+                </div>
+                <div class="metric-value">@GetTotalRequests()</div>
+                <div class="metric-change positive">+12.5% from last period</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Success Rate</span>
+                    <i class="bi bi-check-circle text-success"></i>
+                </div>
+                <div class="metric-value">@GetSuccessRate()%</div>
+                <div class="metric-change positive">+2.1% from last period</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Avg Response Time</span>
+                    <i class="bi bi-speedometer2 text-warning"></i>
+                </div>
+                <div class="metric-value">@GetAvgResponseTime()ms</div>
+                <div class="metric-change negative">+5.2% from last period</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Token Usage</span>
+                    <i class="bi bi-cpu text-info"></i>
+                </div>
+                <div class="metric-value">@GetTokenUsage()</div>
+                <div class="metric-change positive">+8.3% from last period</div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h6>Request Volume Over Time</h6>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                            <div class="legend-color" style="background: #0078d4;"></div>
+                            <span>Requests</span>
+                        </span>
+                        <span class="legend-item">
+                            <div class="legend-color" style="background: #28a745;"></div>
+                            <span>Successful</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="chart-content">
+                    <div class="line-chart">
+                        @foreach (var point in GetRequestVolumeData())
+                        {
+                            <div class="chart-point" 
+                                 style="left: @(point.X)%; bottom: @(point.Y)%;"
+                                 title="@point.Tooltip"></div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h6>Response Time Distribution</h6>
+                </div>
+                <div class="chart-content">
+                    <div class="histogram">
+                        @foreach (var bar in GetResponseTimeDistribution())
+                        {
+                            <div class="histogram-bar" style="height: @(bar.Height)%;" title="@bar.Tooltip"></div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Performance Table -->
+        <div class="performance-section">
+            <div class="section-header">
+                <h6>Agent Performance</h6>
+                <button class="btn btn-sm btn-outline-primary" @onclick="ExportPerformanceData">
+                    <i class="bi bi-download me-2"></i>Export
+                </button>
+            </div>
+            <div class="performance-table">
+                <div class="table-header">
+                    <div class="col-agent">Agent</div>
+                    <div class="col-requests">Requests</div>
+                    <div class="col-success">Success Rate</div>
+                    <div class="col-time">Avg Time</div>
+                    <div class="col-tokens">Tokens</div>
+                    <div class="col-cost">Cost</div>
+                </div>
+                @foreach (var agent in GetAgentPerformance())
+                {
+                    <div class="table-row">
+                        <div class="col-agent">
+                            <div class="agent-info">
+                                <i class="bi @GetAgentIcon(agent.Type)"></i>
+                                <span>@agent.Name</span>
+                            </div>
+                        </div>
+                        <div class="col-requests">@agent.RequestCount</div>
+                        <div class="col-success">
+                            <div class="success-rate">
+                                <div class="rate-bar">
+                                    <div class="rate-fill" style="width: @agent.SuccessRate%"></div>
+                                </div>
+                                <span>@agent.SuccessRate%</span>
+                            </div>
+                        </div>
+                        <div class="col-time">@agent.AvgResponseTime ms</div>
+                        <div class="col-tokens">@agent.TokenCount</div>
+                        <div class="col-cost">$@agent.Cost.ToString("F4")</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Error Analysis -->
+        <div class="error-section">
+            <div class="section-header">
+                <h6>Error Analysis</h6>
+            </div>
+            <div class="error-grid">
+                <div class="error-chart">
+                    <h6>Error Types</h6>
+                    <div class="pie-chart">
+                        @foreach (var slice in GetErrorTypes())
+                        {
+                            <div class="pie-slice" 
+                                 style="--percentage: @(slice.Percentage)%; --color: @slice.Color;"
+                                 title="@slice.Label: @slice.Count errors"></div>
+                        }
+                    </div>
+                </div>
+                <div class="error-list">
+                    <h6>Recent Errors</h6>
+                    <div class="error-items">
+                        @foreach (var error in GetRecentErrors())
+                        {
+                            <div class="error-item">
+                                <div class="error-header">
+                                    <span class="error-type">@error.Type</span>
+                                    <span class="error-time">@error.Timestamp.ToString("HH:mm")</span>
+                                </div>
+                                <div class="error-message">@error.Message</div>
+                                <div class="error-count">@error.Count occurrences</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .analytics-dashboard {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #ffffff;
+    }
+
+    .dashboard-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .dashboard-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .dashboard-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .dashboard-content {
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .metric-card {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .metric-title {
+        font-size: 14px;
+        color: #cccccc;
+        font-weight: 500;
+    }
+
+    .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 4px;
+    }
+
+    .metric-change {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .metric-change.positive {
+        color: #28a745;
+    }
+
+    .metric-change.negative {
+        color: #dc3545;
+    }
+
+    .charts-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .chart-container {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .chart-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .chart-legend {
+        display: flex;
+        gap: 16px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #cccccc;
+    }
+
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+    }
+
+    .chart-content {
+        height: 200px;
+        position: relative;
+    }
+
+    .line-chart {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #1e1e1e;
+        border-radius: 4px;
+    }
+
+    .chart-point {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: #0078d4;
+        border-radius: 50%;
+        transform: translate(-50%, 50%);
+    }
+
+    .histogram {
+        display: flex;
+        align-items: end;
+        height: 100%;
+        gap: 2px;
+    }
+
+    .histogram-bar {
+        flex: 1;
+        background: #0078d4;
+        border-radius: 2px 2px 0 0;
+        min-height: 4px;
+    }
+
+    .performance-section, .error-section {
+        margin-bottom: 24px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .section-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .performance-table {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #3e3e42;
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .table-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+        gap: 16px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #3e3e42;
+        font-size: 12px;
+        align-items: center;
+    }
+
+    .table-row:last-child {
+        border-bottom: none;
+    }
+
+    .agent-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .success-rate {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rate-bar {
+        width: 60px;
+        height: 4px;
+        background: #3e3e42;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .rate-fill {
+        height: 100%;
+        background: #28a745;
+        transition: width 0.3s ease;
+    }
+
+    .error-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .error-chart, .error-list {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .error-chart h6, .error-list h6 {
+        margin: 0 0 16px 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .pie-chart {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: conic-gradient(
+            #dc3545 0deg 36deg,
+            #ffc107 36deg 72deg,
+            #17a2b8 72deg 108deg,
+            #6c757d 108deg 144deg,
+            #28a745 144deg 180deg,
+            #0078d4 180deg 216deg,
+            #6f42c1 216deg 252deg,
+            #e83e8c 252deg 288deg,
+            #fd7e14 288deg 324deg,
+            #20c997 324deg 360deg
+        );
+        margin: 0 auto;
+    }
+
+    .error-items {
+        max-height: 200px;
+        overflow: auto;
+    }
+
+    .error-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .error-item:last-child {
+        border-bottom: none;
+    }
+
+    .error-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+
+    .error-type {
+        font-size: 12px;
+        font-weight: 600;
+        color: #dc3545;
+    }
+
+    .error-time {
+        font-size: 11px;
+        color: #888888;
+    }
+
+    .error-message {
+        font-size: 11px;
+        color: #cccccc;
+        margin-bottom: 2px;
+    }
+
+    .error-count {
+        font-size: 10px;
+        color: #888888;
+    }
+</style>
+
+@code {
+    private string selectedTimeRange = "24h";
+
+    private class ChartPoint
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public string Tooltip { get; set; } = "";
+    }
+
+    private class HistogramBar
+    {
+        public double Height { get; set; }
+        public string Tooltip { get; set; } = "";
+    }
+
+    private class AgentPerformance
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public int RequestCount { get; set; }
+        public double SuccessRate { get; set; }
+        public int AvgResponseTime { get; set; }
+        public int TokenCount { get; set; }
+        public double Cost { get; set; }
+    }
+
+    private class ErrorType
+    {
+        public string Label { get; set; } = "";
+        public int Count { get; set; }
+        public double Percentage { get; set; }
+        public string Color { get; set; } = "";
+    }
+
+    private class RecentError
+    {
+        public string Type { get; set; } = "";
+        public string Message { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public int Count { get; set; }
+    }
+
+    private int GetTotalRequests()
+    {
+        return Random.Shared.Next(1000, 10000);
+    }
+
+    private double GetSuccessRate()
+    {
+        return Random.Shared.Next(85, 99);
+    }
+
+    private int GetAvgResponseTime()
+    {
+        return Random.Shared.Next(100, 500);
+    }
+
+    private int GetTokenUsage()
+    {
+        return Random.Shared.Next(50000, 500000);
+    }
+
+    private List<ChartPoint> GetRequestVolumeData()
+    {
+        var points = new List<ChartPoint>();
+        for (int i = 0; i < 24; i++)
+        {
+            points.Add(new ChartPoint
+            {
+                X = i * 4.17,
+                Y = Random.Shared.Next(10, 90),
+                Tooltip = $"Hour {i}: {Random.Shared.Next(50, 200)} requests"
+            });
+        }
+        return points;
+    }
+
+    private List<HistogramBar> GetResponseTimeDistribution()
+    {
+        var bars = new List<HistogramBar>();
+        for (int i = 0; i < 20; i++)
+        {
+            bars.Add(new HistogramBar
+            {
+                Height = Random.Shared.Next(20, 100),
+                Tooltip = $"{(i * 25)}-{((i + 1) * 25)}ms: {Random.Shared.Next(10, 50)} requests"
+            });
+        }
+        return bars;
+    }
+
+    private List<AgentPerformance> GetAgentPerformance()
+    {
+        return new List<AgentPerformance>
+        {
+            new() { Name = "LLM Agent", Type = "LLM", RequestCount = 1250, SuccessRate = 95.2, AvgResponseTime = 1200, TokenCount = 15000, Cost = 0.045 },
+            new() { Name = "Tool Agent", Type = "Tool", RequestCount = 890, SuccessRate = 98.5, AvgResponseTime = 300, TokenCount = 0, Cost = 0.0 },
+            new() { Name = "Conditional Agent", Type = "Conditional", RequestCount = 650, SuccessRate = 92.1, AvgResponseTime = 150, TokenCount = 0, Cost = 0.0 },
+            new() { Name = "MCP Agent", Type = "MCP", RequestCount = 420, SuccessRate = 88.7, AvgResponseTime = 800, TokenCount = 8500, Cost = 0.025 }
+        };
+    }
+
+    private string GetAgentIcon(string type)
+    {
+        return type switch
+        {
+            "LLM" => "bi-robot",
+            "Tool" => "bi-tools",
+            "Conditional" => "bi-diagram-2",
+            "MCP" => "bi-link-45deg",
+            _ => "bi-circle"
+        };
+    }
+
+    private List<ErrorType> GetErrorTypes()
+    {
+        return new List<ErrorType>
+        {
+            new() { Label = "Timeout", Count = 45, Percentage = 36, Color = "#dc3545" },
+            new() { Label = "Rate Limit", Count = 30, Percentage = 24, Color = "#ffc107" },
+            new() { Label = "Invalid Input", Count = 25, Percentage = 20, Color = "#17a2b8" },
+            new() { Label = "Network Error", Count = 15, Percentage = 12, Color = "#6c757d" },
+            new() { Label = "Other", Count = 10, Percentage = 8, Color = "#28a745" }
+        };
+    }
+
+    private List<RecentError> GetRecentErrors()
+    {
+        return new List<RecentError>
+        {
+            new() { Type = "Timeout", Message = "Request timed out after 30 seconds", Timestamp = DateTime.Now.AddMinutes(-5), Count = 3 },
+            new() { Type = "Rate Limit", Message = "API rate limit exceeded", Timestamp = DateTime.Now.AddMinutes(-12), Count = 1 },
+            new() { Type = "Invalid Input", Message = "Invalid JSON format in request", Timestamp = DateTime.Now.AddMinutes(-18), Count = 2 },
+            new() { Type = "Network Error", Message = "Connection refused", Timestamp = DateTime.Now.AddMinutes(-25), Count = 1 }
+        };
+    }
+
+    private void OnTimeRangeChanged(ChangeEventArgs e)
+    {
+        selectedTimeRange = e.Value?.ToString() ?? "24h";
+        StateHasChanged();
+    }
+
+    private void RefreshData()
+    {
+        StateHasChanged();
+    }
+
+    private void ExportPerformanceData()
+    {
+        // Implementation for exporting performance data
+    }
+}

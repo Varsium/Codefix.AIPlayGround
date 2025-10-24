@@ -1,0 +1,466 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="devui-settings">
+    <div class="settings-header">
+        <h5><i class="bi bi-gear me-2"></i>DevUI Settings</h5>
+        <div class="settings-actions">
+            <button class="btn btn-sm btn-primary" @onclick="SaveSettings">
+                <i class="bi bi-check me-2"></i>Save
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetSettings">
+                <i class="bi bi-arrow-clockwise me-2"></i>Reset
+            </button>
+        </div>
+    </div>
+
+    <div class="settings-content">
+        <div class="settings-sections">
+            <!-- General Settings -->
+            <div class="settings-section">
+                <h6><i class="bi bi-sliders me-2"></i>General</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">Theme</label>
+                        <select class="form-select" @bind="settings.Theme">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Language</label>
+                        <select class="form-select" @bind="settings.Language">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Auto-save</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.AutoSave" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Auto-refresh (seconds)</label>
+                        <input type="number" class="form-control" @bind="settings.AutoRefreshInterval" min="5" max="300" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debugging Settings -->
+            <div class="settings-section">
+                <h6><i class="bi bi-bug me-2"></i>Debugging</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">Enable Debug Mode</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.DebugMode" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Log Level</label>
+                        <select class="form-select" @bind="settings.LogLevel">
+                            <option value="debug">Debug</option>
+                            <option value="info">Info</option>
+                            <option value="warn">Warning</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Max Log Entries</label>
+                        <input type="number" class="form-control" @bind="settings.MaxLogEntries" min="100" max="10000" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Enable Performance Profiling</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.EnableProfiling" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Configuration -->
+            <div class="settings-section">
+                <h6><i class="bi bi-robot me-2"></i>Agent Configuration</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">Default Model</label>
+                        <select class="form-select" @bind="settings.DefaultModel">
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="claude-3">Claude 3</option>
+                            <option value="gemini-pro">Gemini Pro</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Default Temperature</label>
+                        <input type="range" class="form-range" min="0" max="2" step="0.1" @bind="settings.DefaultTemperature" />
+                        <div class="range-value">@settings.DefaultTemperature</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Default Max Tokens</label>
+                        <input type="number" class="form-control" @bind="settings.DefaultMaxTokens" min="1" max="4000" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Request Timeout (seconds)</label>
+                        <input type="number" class="form-control" @bind="settings.RequestTimeout" min="10" max="300" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Settings -->
+            <div class="settings-section">
+                <h6><i class="bi bi-cloud me-2"></i>API Configuration</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">OpenAI API Key</label>
+                        <div class="input-group">
+                            <input type="@OpenAIKeyInputType" class="form-control" @bind="settings.OpenAIKey" placeholder="sk-..." />
+                            <button class="btn btn-outline-secondary" @onclick='() => ToggleApiKeyVisibility("openai")'>
+                                <i class="bi @(showOpenAIKey ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Azure OpenAI Endpoint</label>
+                        <input type="url" class="form-control" @bind="settings.AzureOpenAIEndpoint" placeholder="https://your-resource.openai.azure.com/" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Azure OpenAI API Key</label>
+                        <div class="input-group">
+                            <input type="@AzureKeyInputType" class="form-control" @bind="settings.AzureOpenAIKey" placeholder="..." />
+                            <button class="btn btn-outline-secondary" @onclick='() => ToggleApiKeyVisibility("azure")'>
+                                <i class="bi @(showAzureKey ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">API Base URL</label>
+                        <input type="url" class="form-control" @bind="settings.ApiBaseUrl" placeholder="https://api.openai.com/v1" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Settings -->
+            <div class="settings-section">
+                <h6><i class="bi bi-speedometer2 me-2"></i>Performance</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">Enable Caching</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.EnableCaching" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Cache Duration (minutes)</label>
+                        <input type="number" class="form-control" @bind="settings.CacheDuration" min="1" max="1440" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Max Concurrent Requests</label>
+                        <input type="number" class="form-control" @bind="settings.MaxConcurrentRequests" min="1" max="50" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Enable Request Batching</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.EnableRequestBatching" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="settings-section">
+                <h6><i class="bi bi-shield-check me-2"></i>Security</h6>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <label class="setting-label">Enable HTTPS Only</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.EnableHttpsOnly" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Session Timeout (minutes)</label>
+                        <input type="number" class="form-control" @bind="settings.SessionTimeout" min="5" max="480" />
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Enable Audit Logging</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="settings.EnableAuditLogging" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">Allowed Origins</label>
+                        <textarea class="form-control" rows="3" @bind="settings.AllowedOrigins" 
+                                  placeholder="https://localhost:3000&#10;https://yourdomain.com"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Preview -->
+        <div class="settings-preview">
+            <h6><i class="bi bi-eye me-2"></i>Preview</h6>
+            <div class="preview-content">
+                <div class="preview-item">
+                    <span class="preview-label">Theme:</span>
+                    <span class="preview-value">@settings.Theme</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Debug Mode:</span>
+                    <span class="preview-value @(settings.DebugMode ? "text-success" : "text-muted")">
+                        @(settings.DebugMode ? "Enabled" : "Disabled")
+                    </span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Default Model:</span>
+                    <span class="preview-value">@settings.DefaultModel</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Auto-save:</span>
+                    <span class="preview-value @(settings.AutoSave ? "text-success" : "text-muted")">
+                        @(settings.AutoSave ? "Enabled" : "Disabled")
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .devui-settings {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #ffffff;
+    }
+
+    .settings-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .settings-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .settings-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .settings-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .settings-sections {
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+    }
+
+    .settings-section {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .settings-section h6 {
+        background: #3e3e42;
+        margin: 0;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .settings-group {
+        padding: 16px;
+    }
+
+    .setting-item {
+        margin-bottom: 16px;
+    }
+
+    .setting-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .setting-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #cccccc;
+    }
+
+    .form-control, .form-select {
+        background: #1e1e1e;
+        border: 1px solid #3e3e42;
+        color: #ffffff;
+        font-size: 13px;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: #1e1e1e;
+        border-color: #0078d4;
+        color: #ffffff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 120, 212, 0.25);
+    }
+
+    .form-check-input:checked {
+        background-color: #0078d4;
+        border-color: #0078d4;
+    }
+
+    .range-value {
+        text-align: center;
+        font-size: 12px;
+        color: #0078d4;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+
+    .input-group .btn {
+        border-color: #3e3e42;
+        color: #cccccc;
+    }
+
+    .input-group .btn:hover {
+        background: #3e3e42;
+        color: #ffffff;
+    }
+
+    .settings-preview {
+        width: 300px;
+        background: #252526;
+        border-left: 1px solid #3e3e42;
+        padding: 20px;
+        overflow: auto;
+    }
+
+    .settings-preview h6 {
+        margin: 0 0 16px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .preview-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+
+    .preview-label {
+        font-size: 12px;
+        color: #cccccc;
+    }
+
+    .preview-value {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    private DevUiSettings settings = new();
+    private bool showOpenAIKey = false;
+    private bool showAzureKey = false;
+    
+    private string OpenAIKeyInputType => showOpenAIKey ? "text" : "password";
+    private string AzureKeyInputType => showAzureKey ? "text" : "password";
+
+    private class DevUiSettings
+    {
+        public string Theme { get; set; } = "dark";
+        public string Language { get; set; } = "en";
+        public bool AutoSave { get; set; } = true;
+        public int AutoRefreshInterval { get; set; } = 30;
+        public bool DebugMode { get; set; } = false;
+        public string LogLevel { get; set; } = "info";
+        public int MaxLogEntries { get; set; } = 1000;
+        public bool EnableProfiling { get; set; } = true;
+        public string DefaultModel { get; set; } = "gpt-4";
+        public double DefaultTemperature { get; set; } = 0.7;
+        public int DefaultMaxTokens { get; set; } = 1000;
+        public int RequestTimeout { get; set; } = 30;
+        public string OpenAIKey { get; set; } = "";
+        public string AzureOpenAIEndpoint { get; set; } = "";
+        public string AzureOpenAIKey { get; set; } = "";
+        public string ApiBaseUrl { get; set; } = "https://api.openai.com/v1";
+        public bool EnableCaching { get; set; } = true;
+        public int CacheDuration { get; set; } = 60;
+        public int MaxConcurrentRequests { get; set; } = 10;
+        public bool EnableRequestBatching { get; set; } = false;
+        public bool EnableHttpsOnly { get; set; } = true;
+        public int SessionTimeout { get; set; } = 60;
+        public bool EnableAuditLogging { get; set; } = true;
+        public string AllowedOrigins { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        // Load settings from storage or use defaults
+        // This would typically load from localStorage or a settings service
+        StateHasChanged();
+    }
+
+    private async Task SaveSettings()
+    {
+        // Save settings to storage
+        // This would typically save to localStorage or a settings service
+        await Task.Delay(100); // Simulate save operation
+        StateHasChanged();
+    }
+
+    private async Task ResetSettings()
+    {
+        settings = new DevUiSettings();
+        await SaveSettings();
+    }
+
+    private void ToggleApiKeyVisibility(string keyType)
+    {
+        if (keyType == "openai")
+        {
+            showOpenAIKey = !showOpenAIKey;
+        }
+        else if (keyType == "azure")
+        {
+            showAzureKey = !showAzureKey;
+        }
+        StateHasChanged();
+    }
+}

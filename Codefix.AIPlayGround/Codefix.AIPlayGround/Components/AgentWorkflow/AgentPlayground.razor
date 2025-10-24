@@ -1,0 +1,791 @@
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+
+<div class="agent-playground">
+    <div class="playground-header">
+        <h5><i class="bi bi-play-circle me-2"></i>Agent Playground</h5>
+        <div class="playground-controls">
+            <button class="btn btn-sm btn-success" @onclick="RunTest" disabled="@isRunning">
+                <i class="bi bi-play-fill"></i> Run Test
+            </button>
+            <button class="btn btn-sm btn-warning" @onclick="StopTest" disabled="@(!isRunning)">
+                <i class="bi bi-stop-fill"></i> Stop
+            </button>
+            <button class="btn btn-sm btn-secondary" @onclick="ClearResults">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+        </div>
+    </div>
+
+    <div class="playground-content">
+        <!-- Left Panel - Test Configuration -->
+        <div class="config-panel">
+            <div class="config-section">
+                <h6><i class="bi bi-gear me-2"></i>Test Configuration</h6>
+                <div class="config-form">
+                    <div class="form-group">
+                        <label class="form-label">Agent Type</label>
+                        <select class="form-select" @bind="selectedAgentType">
+                            <option value="LLMAgent">LLM Agent</option>
+                            <option value="ToolAgent">Tool Agent</option>
+                            <option value="ConditionalAgent">Conditional Agent</option>
+                            <option value="MCPAgent">MCP Agent</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Model</label>
+                        <select class="form-select" @bind="selectedModel">
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="claude-3">Claude 3</option>
+                            <option value="gemini-pro">Gemini Pro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Temperature</label>
+                        <input type="range" class="form-range" min="0" max="2" step="0.1" @bind="temperature" />
+                        <div class="range-value">@temperature</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Tokens</label>
+                        <input type="number" class="form-control" @bind="maxTokens" min="1" max="4000" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">System Prompt</label>
+                        <textarea class="form-control" rows="3" @bind="systemPrompt" 
+                                  placeholder="Enter system prompt for the agent..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h6><i class="bi bi-input-cursor me-2"></i>Test Input</h6>
+                <div class="input-section">
+                    <div class="input-tabs">
+                        <button class="tab-btn @(inputTab == "text" ? "active" : "")" @onclick="@(() => SetInputTab("text"))">
+                            Text
+                        </button>
+                        <button class="tab-btn @(inputTab == "json" ? "active" : "")" @onclick="@(() => SetInputTab("json"))">
+                            JSON
+                        </button>
+                        <button class="tab-btn @(inputTab == "file" ? "active" : "")" @onclick="@(() => SetInputTab("file"))">
+                            File
+                        </button>
+                    </div>
+
+                    <div class="input-content">
+                        @if (inputTab == "text")
+                        {
+                            <textarea class="form-control" rows="6" @bind="textInput" 
+                                      placeholder="Enter your test input here..."></textarea>
+                        }
+                        else if (inputTab == "json")
+                        {
+                            <textarea class="form-control" rows="6" @bind="jsonInput" 
+                                      placeholder='{"key": "value", "message": "Hello world"}'></textarea>
+                        }
+                        else if (inputTab == "file")
+                        {
+                            <div class="file-upload">
+                                <input type="file" class="form-control" @onchange="OnFileSelected" />
+                                <div class="file-info">
+                                    @if (selectedFile != null)
+                                    {
+                                        <span>Selected: @selectedFile.Name</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h6><i class="bi bi-list-check me-2"></i>Test Cases</h6>
+                <div class="test-cases">
+                    <div class="test-case-list">
+                        @foreach (var testCase in testCases)
+                        {
+                            <div class="test-case-item @(testCase.Id == selectedTestCaseId ? "selected" : "")" 
+                                 @onclick="@(() => SelectTestCase(testCase.Id))">
+                                <div class="test-case-name">@testCase.Name</div>
+                                <div class="test-case-status @testCase.Status.ToLower()">@testCase.Status</div>
+                            </div>
+                        }
+                    </div>
+                    <div class="test-case-actions">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AddTestCase">
+                            <i class="bi bi-plus"></i> Add
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="RunAllTests" disabled="@isRunning">
+                            <i class="bi bi-play"></i> Run All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Results -->
+        <div class="results-panel">
+            <div class="results-header">
+                <h6><i class="bi bi-clipboard-data me-2"></i>Test Results</h6>
+                <div class="results-stats">
+                    <span class="stat-item">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <span>@GetPassedTests()</span>
+                    </span>
+                    <span class="stat-item">
+                        <i class="bi bi-x-circle text-danger"></i>
+                        <span>@GetFailedTests()</span>
+                    </span>
+                    <span class="stat-item">
+                        <i class="bi bi-clock text-warning"></i>
+                        <span>@GetRunningTests()</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="results-content" @ref="resultsContainerRef">
+                @if (testResults.Any())
+                {
+                    @foreach (var result in testResults)
+                    {
+                        <div class="test-result @result.Status.ToLower()">
+                            <div class="result-header">
+                                <div class="result-title">
+                                    <i class="bi @GetResultIcon(result.Status)"></i>
+                                    <span>@result.TestName</span>
+                                </div>
+                                <div class="result-meta">
+                                    <span class="result-time">@result.Duration.TotalMilliseconds.ToString("F0")ms</span>
+                                    <span class="result-timestamp">@result.Timestamp.ToString("HH:mm:ss")</span>
+                                </div>
+                            </div>
+                            <div class="result-content">
+                                <div class="result-input">
+                                    <strong>Input:</strong>
+                                    <pre>@result.Input</pre>
+                                </div>
+                                <div class="result-output">
+                                    <strong>Output:</strong>
+                                    <pre>@result.Output</pre>
+                                </div>
+                                @if (!string.IsNullOrEmpty(result.Error))
+                                {
+                                    <div class="result-error">
+                                        <strong>Error:</strong>
+                                        <pre>@result.Error</pre>
+                                    </div>
+                                }
+                                @if (result.Metrics != null)
+                                {
+                                    <div class="result-metrics">
+                                        <div class="metric">
+                                            <span class="metric-label">Tokens:</span>
+                                            <span class="metric-value">@result.Metrics.TokenCount</span>
+                                        </div>
+                                        <div class="metric">
+                                            <span class="metric-label">Time:</span>
+                                            <span class="metric-value">@result.Metrics.ExecutionTime.TotalMilliseconds.ToString("F0")ms</span>
+                                        </div>
+                                        <div class="metric">
+                                            <span class="metric-label">Memory:</span>
+                                            <span class="metric-value">@result.Metrics.MemoryUsage MB</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-results">
+                        <i class="bi bi-clipboard me-2"></i>
+                        <span>No test results yet. Run a test to see results here.</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .agent-playground {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #ffffff;
+    }
+
+    .playground-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .playground-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .playground-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .playground-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .config-panel {
+        width: 400px;
+        background: #252526;
+        border-right: 1px solid #3e3e42;
+        overflow: auto;
+    }
+
+    .config-section {
+        padding: 16px;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .config-section h6 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #0078d4;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #cccccc;
+    }
+
+    .form-control, .form-select {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        color: #ffffff;
+        font-size: 12px;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: #2d2d30;
+        border-color: #0078d4;
+        color: #ffffff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 120, 212, 0.25);
+    }
+
+    .range-value {
+        text-align: center;
+        font-size: 12px;
+        color: #0078d4;
+        font-weight: 500;
+    }
+
+    .input-tabs {
+        display: flex;
+        margin-bottom: 8px;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 6px 12px;
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        color: #cccccc;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:first-child {
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
+    }
+
+    .tab-btn:last-child {
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+
+    .tab-btn.active {
+        background: #0078d4;
+        color: white;
+        border-color: #0078d4;
+    }
+
+    .file-upload {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .file-info {
+        font-size: 11px;
+        color: #888888;
+    }
+
+    .test-cases {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .test-case-list {
+        max-height: 200px;
+        overflow: auto;
+    }
+
+    .test-case-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .test-case-item:hover {
+        background: #3e3e42;
+    }
+
+    .test-case-item.selected {
+        background: #0078d4;
+        border-color: #0078d4;
+    }
+
+    .test-case-name {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .test-case-status {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .test-case-status.passed {
+        background: #28a745;
+        color: white;
+    }
+
+    .test-case-status.failed {
+        background: #dc3545;
+        color: white;
+    }
+
+    .test-case-status.running {
+        background: #ffc107;
+        color: black;
+    }
+
+    .test-case-status.pending {
+        background: #6c757d;
+        color: white;
+    }
+
+    .test-case-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .results-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+    }
+
+    .results-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .results-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .results-stats {
+        display: flex;
+        gap: 16px;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+    }
+
+    .results-content {
+        flex: 1;
+        overflow: auto;
+        padding: 16px;
+    }
+
+    .test-result {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .test-result.passed {
+        border-left: 4px solid #28a745;
+    }
+
+    .test-result.failed {
+        border-left: 4px solid #dc3545;
+    }
+
+    .test-result.running {
+        border-left: 4px solid #ffc107;
+    }
+
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: #3e3e42;
+    }
+
+    .result-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .result-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: #888888;
+    }
+
+    .result-content {
+        padding: 16px;
+    }
+
+    .result-input, .result-output, .result-error {
+        margin-bottom: 12px;
+    }
+
+    .result-input strong, .result-output strong, .result-error strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: #0078d4;
+    }
+
+    .result-input pre, .result-output pre, .result-error pre {
+        background: #1e1e1e;
+        border: 1px solid #3e3e42;
+        border-radius: 4px;
+        padding: 8px;
+        margin: 0;
+        font-size: 11px;
+        color: #cccccc;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow: auto;
+    }
+
+    .result-error pre {
+        color: #dc3545;
+    }
+
+    .result-metrics {
+        display: flex;
+        gap: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #3e3e42;
+    }
+
+    .metric {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .metric-label {
+        font-size: 10px;
+        color: #888888;
+    }
+
+    .metric-value {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    .no-results {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #888888;
+        font-size: 14px;
+    }
+</style>
+
+@code {
+    private ElementReference resultsContainerRef;
+    private bool isRunning = false;
+    private string selectedAgentType = "LLMAgent";
+    private string selectedModel = "gpt-4";
+    private double temperature = 0.7;
+    private int maxTokens = 1000;
+    private string systemPrompt = "You are a helpful AI assistant.";
+    private string inputTab = "text";
+    private string textInput = "";
+    private string jsonInput = "";
+    private IFormFile? selectedFile;
+    private string selectedTestCaseId = "";
+    private List<TestCase> testCases = new();
+    private List<TestResult> testResults = new();
+
+    private class TestCase
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "pending";
+        public string Input { get; set; } = "";
+        public string ExpectedOutput { get; set; } = "";
+    }
+
+    private class TestResult
+    {
+        public string TestName { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string Input { get; set; } = "";
+        public string Output { get; set; } = "";
+        public string Error { get; set; } = "";
+        public TimeSpan Duration { get; set; }
+        public DateTime Timestamp { get; set; }
+        public PerformanceMetrics? Metrics { get; set; }
+    }
+
+    private class PerformanceMetrics
+    {
+        public int TokenCount { get; set; }
+        public TimeSpan ExecutionTime { get; set; }
+        public double MemoryUsage { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize with sample test cases
+        testCases = new List<TestCase>
+        {
+            new() { Id = "1", Name = "Basic Greeting", Status = "pending", Input = "Hello", ExpectedOutput = "Hi there!" },
+            new() { Id = "2", Name = "Math Problem", Status = "pending", Input = "What is 2+2?", ExpectedOutput = "4" },
+            new() { Id = "3", Name = "Code Generation", Status = "pending", Input = "Write a hello world in C#", ExpectedOutput = "Console.WriteLine(\"Hello World\");" }
+        };
+    }
+
+    private void SetInputTab(string tab)
+    {
+        inputTab = tab;
+        StateHasChanged();
+    }
+
+    private void OnFileSelected(ChangeEventArgs e)
+    {
+        // Handle file selection
+        StateHasChanged();
+    }
+
+    private void SelectTestCase(string testCaseId)
+    {
+        selectedTestCaseId = testCaseId;
+        var testCase = testCases.FirstOrDefault(tc => tc.Id == testCaseId);
+        if (testCase != null)
+        {
+            textInput = testCase.Input;
+        }
+        StateHasChanged();
+    }
+
+    private void AddTestCase()
+    {
+        var newTestCase = new TestCase
+        {
+            Id = (testCases.Count + 1).ToString(),
+            Name = $"Test Case {testCases.Count + 1}",
+            Status = "pending",
+            Input = textInput
+        };
+        testCases.Add(newTestCase);
+        StateHasChanged();
+    }
+
+    private async Task RunTest()
+    {
+        isRunning = true;
+        StateHasChanged();
+
+        try
+        {
+            var input = inputTab switch
+            {
+                "text" => textInput,
+                "json" => jsonInput,
+                "file" => selectedFile?.Name ?? "",
+                _ => textInput
+            };
+
+            var result = await SimulateAgentExecution(input);
+            testResults.Add(result);
+        }
+        finally
+        {
+            isRunning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RunAllTests()
+    {
+        isRunning = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var testCase in testCases)
+            {
+                testCase.Status = "running";
+                StateHasChanged();
+
+                var result = await SimulateAgentExecution(testCase.Input);
+                testResults.Add(result);
+
+                testCase.Status = result.Status;
+                StateHasChanged();
+
+                await Task.Delay(500); // Simulate processing time
+            }
+        }
+        finally
+        {
+            isRunning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopTest()
+    {
+        isRunning = false;
+        StateHasChanged();
+    }
+
+    private void ClearResults()
+    {
+        testResults.Clear();
+        StateHasChanged();
+    }
+
+    private async Task<TestResult> SimulateAgentExecution(string input)
+    {
+        var startTime = DateTime.Now;
+        
+        // Simulate processing time
+        await Task.Delay(Random.Shared.Next(1000, 3000));
+        
+        var endTime = DateTime.Now;
+        var duration = endTime - startTime;
+
+        // Simulate random success/failure
+        var isSuccess = Random.Shared.NextDouble() > 0.2;
+        
+        return new TestResult
+        {
+            TestName = $"Test {testResults.Count + 1}",
+            Status = isSuccess ? "passed" : "failed",
+            Input = input,
+            Output = isSuccess ? GenerateMockResponse(input) : "",
+            Error = isSuccess ? "" : "Simulated error: Agent execution failed",
+            Duration = duration,
+            Timestamp = DateTime.Now,
+            Metrics = new PerformanceMetrics
+            {
+                TokenCount = Random.Shared.Next(50, 500),
+                ExecutionTime = duration,
+                MemoryUsage = Random.Shared.NextDouble() * 100
+            }
+        };
+    }
+
+    private string GenerateMockResponse(string input)
+    {
+        return input.ToLower() switch
+        {
+            var s when s.Contains("hello") => "Hello! How can I help you today?",
+            var s when s.Contains("math") || s.Contains("+") => "The answer is 4.",
+            var s when s.Contains("code") || s.Contains("program") => "Here's a simple example:\n\n```csharp\nConsole.WriteLine(\"Hello World\");\n```",
+            _ => "I understand your request. Let me help you with that."
+        };
+    }
+
+    private string GetResultIcon(string status)
+    {
+        return status switch
+        {
+            "passed" => "bi-check-circle",
+            "failed" => "bi-x-circle",
+            "running" => "bi-arrow-clockwise",
+            _ => "bi-circle"
+        };
+    }
+
+    private int GetPassedTests()
+    {
+        return testResults.Count(r => r.Status == "passed");
+    }
+
+    private int GetFailedTests()
+    {
+        return testResults.Count(r => r.Status == "failed");
+    }
+
+    private int GetRunningTests()
+    {
+        return testResults.Count(r => r.Status == "running");
+    }
+}

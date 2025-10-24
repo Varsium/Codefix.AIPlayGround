@@ -39,6 +39,63 @@ public class MicrosoftAgentFrameworkDefinition
 }
 
 /// <summary>
+/// AI Provider types supported by Microsoft Agent Framework
+/// </summary>
+public enum AIProviderType
+{
+    /// <summary>
+    /// OpenAI provider
+    /// </summary>
+    OpenAI,
+    
+    /// <summary>
+    /// Azure OpenAI provider
+    /// </summary>
+    AzureOpenAI,
+    
+    /// <summary>
+    /// Anthropic provider
+    /// </summary>
+    Anthropic,
+    
+    /// <summary>
+    /// PeerLLM decentralized provider
+    /// </summary>
+    PeerLLM,
+    
+    /// <summary>
+    /// Ollama local provider (runs models like Llama2, Mistral, CodeLlama locally)
+    /// </summary>
+    Ollama,
+    
+    /// <summary>
+    /// Google AI provider
+    /// </summary>
+    GoogleAI,
+    
+    /// <summary>
+    /// Docker Model Runner - Docker's native AI model hosting
+    /// See: https://docs.docker.com/ai/model-runner/
+    /// </summary>
+    DockerModelRunner,
+    
+    /// <summary>
+    /// Generic local model provider (custom Docker containers, local endpoints)
+    /// </summary>
+    LocalModel,
+    
+    /// <summary>
+    /// LM Studio local provider
+    /// </summary>
+    LMStudio,
+    
+    /// <summary>
+    /// Custom provider
+    /// </summary>
+    Custom
+}
+
+/// <summary>
 /// Microsoft Agent Framework agent types
 /// Based on official framework patterns
 /// </summary>
@@ -99,14 +156,19 @@ public enum MicrosoftAgentFrameworkStatus
 public class MicrosoftAgentFrameworkLLMConfiguration
 {
     /// <summary>
-    /// Model name (e.g., "gpt-4", "gpt-3.5-turbo", "claude-3")
+    /// Model name (e.g., "gpt-4", "gpt-3.5-turbo", "claude-3", "mistral-7b-instruct")
     /// </summary>
     public string ModelName { get; set; } = "gpt-4";
     
     /// <summary>
-    /// Provider (e.g., "OpenAI", "Azure OpenAI", "Anthropic")
+    /// Provider (e.g., "OpenAI", "Azure OpenAI", "Anthropic", "PeerLLM", "Ollama")
     /// </summary>
     public string Provider { get; set; } = "OpenAI";
+    
+    /// <summary>
+    /// AI Provider type for framework integration
+    /// </summary>
+    public AIProviderType ProviderType { get; set; } = AIProviderType.OpenAI;
     
     /// <summary>
     /// API endpoint URL

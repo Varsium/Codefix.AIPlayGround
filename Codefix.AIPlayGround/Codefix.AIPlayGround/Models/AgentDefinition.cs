@@ -26,6 +26,7 @@ public enum AgentType
     ParallelAgent,
     CheckpointAgent,
     MCPAgent,
+    PeerLLMAgent,
     StartNode,
     EndNode,
     FunctionNode

@@ -1,0 +1,607 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="performance-monitor">
+    <div class="monitor-header">
+        <h6><i class="bi bi-speedometer2 me-2"></i>Performance Monitor</h6>
+        <div class="monitor-controls">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetMetrics">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ExportMetrics">
+                <i class="bi bi-download"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="monitor-content">
+        <!-- Real-time Metrics -->
+        <div class="metrics-section">
+            <h6 class="section-title">
+                <i class="bi bi-graph-up me-2"></i>Real-time Metrics
+            </h6>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-title">Response Time</span>
+                        <span class="metric-value">@GetResponseTime()ms</span>
+                    </div>
+                    <div class="metric-chart">
+                        <div class="chart-bar" style="height: @GetResponseTimePercent()%"></div>
+                    </div>
+                    <div class="metric-trend @GetTrendClass("response")">
+                        <i class="bi @GetTrendIcon("response")"></i>
+                        <span>@GetTrendValue("response")%</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-title">Token Usage</span>
+                        <span class="metric-value">@GetTokenUsage()</span>
+                    </div>
+                    <div class="metric-chart">
+                        <div class="chart-bar" style="height: @GetTokenUsagePercent()%"></div>
+                    </div>
+                    <div class="metric-trend @GetTrendClass("tokens")">
+                        <i class="bi @GetTrendIcon("tokens")"></i>
+                        <span>@GetTrendValue("tokens")%</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-title">Memory Usage</span>
+                        <span class="metric-value">@GetMemoryUsage()</span>
+                    </div>
+                    <div class="metric-chart">
+                        <div class="chart-bar" style="height: @GetMemoryUsagePercent()%"></div>
+                    </div>
+                    <div class="metric-trend @GetTrendClass("memory")">
+                        <i class="bi @GetTrendIcon("memory")"></i>
+                        <span>@GetTrendValue("memory")%</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-title">CPU Usage</span>
+                        <span class="metric-value">@GetCpuUsage()%</span>
+                    </div>
+                    <div class="metric-chart">
+                        <div class="chart-bar" style="height: @GetCpuUsage()%"></div>
+                    </div>
+                    <div class="metric-trend @GetTrendClass("cpu")">
+                        <i class="bi @GetTrendIcon("cpu")"></i>
+                        <span>@GetTrendValue("cpu")%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance History -->
+        <div class="history-section">
+            <h6 class="section-title">
+                <i class="bi bi-clock-history me-2"></i>Performance History
+            </h6>
+            <div class="history-chart">
+                <div class="chart-container">
+                    <div class="chart-lines">
+                        @foreach (var point in GetPerformanceHistory())
+                        {
+                            <div class="chart-point" 
+                                 style="left: @(point.X)%; bottom: @(point.Y)%;"
+                                 title="@point.Tooltip"></div>
+                        }
+                    </div>
+                    <div class="chart-labels">
+                        <div class="y-labels">
+                            <span>100ms</span>
+                            <span>75ms</span>
+                            <span>50ms</span>
+                            <span>25ms</span>
+                            <span>0ms</span>
+                        </div>
+                        <div class="x-labels">
+                            <span>5m ago</span>
+                            <span>4m ago</span>
+                            <span>3m ago</span>
+                            <span>2m ago</span>
+                            <span>1m ago</span>
+                            <span>Now</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Node Performance Breakdown -->
+        <div class="breakdown-section">
+            <h6 class="section-title">
+                <i class="bi bi-diagram-2 me-2"></i>Node Performance
+            </h6>
+            <div class="node-performance-list">
+                @foreach (var node in GetNodePerformance())
+                {
+                    <div class="node-performance-item">
+                        <div class="node-info">
+                            <div class="node-name">@node.Name</div>
+                            <div class="node-type">@node.Type</div>
+                        </div>
+                        <div class="node-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Time:</span>
+                                <span class="metric-value">@node.ExecutionTime ms</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Tokens:</span>
+                                <span class="metric-value">@node.TokenCount</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Memory:</span>
+                                <span class="metric-value">@node.MemoryUsage MB</span>
+                            </div>
+                        </div>
+                        <div class="node-status @GetNodeStatusClass(node.Status)">
+                            @node.Status
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Cost Analysis -->
+        <div class="cost-section">
+            <h6 class="section-title">
+                <i class="bi bi-currency-dollar me-2"></i>Cost Analysis
+            </h6>
+            <div class="cost-summary">
+                <div class="cost-item">
+                    <span class="cost-label">Total Tokens:</span>
+                    <span class="cost-value">@GetTotalTokens()</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">Estimated Cost:</span>
+                    <span class="cost-value">$@GetEstimatedCost()</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">Cost per Request:</span>
+                    <span class="cost-value">$@GetCostPerRequest()</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">Daily Projection:</span>
+                    <span class="cost-value">$@GetDailyProjection()</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .performance-monitor {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #252526;
+        color: #cccccc;
+    }
+
+    .monitor-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .monitor-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .monitor-controls {
+        display: flex;
+        gap: 4px;
+    }
+
+    .monitor-content {
+        flex: 1;
+        overflow: auto;
+        padding: 8px 0;
+    }
+
+    .metrics-section, .history-section, .breakdown-section, .cost-section {
+        margin-bottom: 16px;
+    }
+
+    .section-title {
+        padding: 8px 16px;
+        margin: 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: #0078d4;
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .metric-card {
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 6px;
+        padding: 12px;
+    }
+
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .metric-title {
+        font-size: 12px;
+        color: #cccccc;
+    }
+
+    .metric-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .metric-chart {
+        height: 40px;
+        background: #1e1e1e;
+        border-radius: 4px;
+        position: relative;
+        margin-bottom: 8px;
+    }
+
+    .chart-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #0078d4;
+        border-radius: 4px;
+        transition: height 0.3s ease;
+    }
+
+    .metric-trend {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .metric-trend.positive {
+        color: #28a745;
+    }
+
+    .metric-trend.negative {
+        color: #dc3545;
+    }
+
+    .metric-trend.neutral {
+        color: #888888;
+    }
+
+    .history-chart {
+        padding: 16px;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 120px;
+        background: #1e1e1e;
+        border-radius: 6px;
+        border: 1px solid #3e3e42;
+    }
+
+    .chart-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    .chart-point {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: #0078d4;
+        border-radius: 50%;
+        transform: translate(-50%, 50%);
+    }
+
+    .chart-labels {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+    }
+
+    .y-labels {
+        position: absolute;
+        left: 8px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-size: 10px;
+        color: #888888;
+    }
+
+    .x-labels {
+        position: absolute;
+        bottom: 8px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: #888888;
+    }
+
+    .node-performance-list {
+        padding: 0 16px;
+    }
+
+    .node-performance-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .node-performance-item:last-child {
+        border-bottom: none;
+    }
+
+    .node-info {
+        flex: 1;
+        margin-right: 12px;
+    }
+
+    .node-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .node-type {
+        font-size: 11px;
+        color: #888888;
+    }
+
+    .node-metrics {
+        display: flex;
+        gap: 16px;
+        margin-right: 12px;
+    }
+
+    .metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .metric-label {
+        font-size: 10px;
+        color: #888888;
+    }
+
+    .metric-value {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+    .node-status {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 500;
+    }
+
+    .node-status.running {
+        background: #28a745;
+        color: white;
+    }
+
+    .node-status.completed {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .node-status.error {
+        background: #dc3545;
+        color: white;
+    }
+
+    .cost-summary {
+        padding: 0 16px;
+    }
+
+    .cost-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .cost-item:last-child {
+        border-bottom: none;
+    }
+
+    .cost-label {
+        font-size: 12px;
+        color: #cccccc;
+    }
+
+    .cost-value {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    [Parameter] public object? ExecutionState { get; set; }
+
+    private class PerformancePoint
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public string Tooltip { get; set; } = "";
+    }
+
+    private class NodePerformance
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public int ExecutionTime { get; set; }
+        public int TokenCount { get; set; }
+        public double MemoryUsage { get; set; }
+        public string Status { get; set; } = "";
+    }
+
+    private int GetResponseTime()
+    {
+        return Random.Shared.Next(50, 200);
+    }
+
+    private int GetResponseTimePercent()
+    {
+        return Random.Shared.Next(30, 80);
+    }
+
+    private int GetTokenUsage()
+    {
+        return Random.Shared.Next(100, 2000);
+    }
+
+    private int GetTokenUsagePercent()
+    {
+        return Random.Shared.Next(40, 90);
+    }
+
+    private string GetMemoryUsage()
+    {
+        return $"{Random.Shared.Next(20, 100):F1} MB";
+    }
+
+    private int GetMemoryUsagePercent()
+    {
+        return Random.Shared.Next(30, 70);
+    }
+
+    private int GetCpuUsage()
+    {
+        return Random.Shared.Next(20, 80);
+    }
+
+    private string GetTrendClass(string metric)
+    {
+        var trend = Random.Shared.Next(-1, 2);
+        return trend switch
+        {
+            1 => "positive",
+            -1 => "negative",
+            _ => "neutral"
+        };
+    }
+
+    private string GetTrendIcon(string metric)
+    {
+        var trend = Random.Shared.Next(-1, 2);
+        return trend switch
+        {
+            1 => "bi-arrow-up",
+            -1 => "bi-arrow-down",
+            _ => "bi-dash"
+        };
+    }
+
+    private int GetTrendValue(string metric)
+    {
+        return Random.Shared.Next(1, 15);
+    }
+
+    private List<PerformancePoint> GetPerformanceHistory()
+    {
+        var points = new List<PerformancePoint>();
+        for (int i = 0; i < 20; i++)
+        {
+            points.Add(new PerformancePoint
+            {
+                X = i * 5,
+                Y = Random.Shared.Next(10, 90),
+                Tooltip = $"Time: {DateTime.Now.AddMinutes(-i):HH:mm}, Response: {Random.Shared.Next(50, 200)}ms"
+            });
+        }
+        return points;
+    }
+
+    private List<NodePerformance> GetNodePerformance()
+    {
+        return new List<NodePerformance>
+        {
+            new() { Name = "Start Node", Type = "Start", ExecutionTime = 5, TokenCount = 0, MemoryUsage = 2.1, Status = "completed" },
+            new() { Name = "LLM Agent", Type = "LLM", ExecutionTime = 1200, TokenCount = 150, MemoryUsage = 45.2, Status = "completed" },
+            new() { Name = "Tool Agent", Type = "Tool", ExecutionTime = 300, TokenCount = 0, MemoryUsage = 12.8, Status = "running" },
+            new() { Name = "Conditional", Type = "Conditional", ExecutionTime = 0, TokenCount = 0, MemoryUsage = 0, Status = "pending" },
+            new() { Name = "End Node", Type = "End", ExecutionTime = 0, TokenCount = 0, MemoryUsage = 0, Status = "pending" }
+        };
+    }
+
+    private string GetNodeStatusClass(string status)
+    {
+        return status.ToLower();
+    }
+
+    private int GetTotalTokens()
+    {
+        return Random.Shared.Next(500, 5000);
+    }
+
+    private string GetEstimatedCost()
+    {
+        return (Random.Shared.NextDouble() * 0.5).ToString("F4");
+    }
+
+    private string GetCostPerRequest()
+    {
+        return (Random.Shared.NextDouble() * 0.01).ToString("F4");
+    }
+
+    private string GetDailyProjection()
+    {
+        return (Random.Shared.NextDouble() * 10).ToString("F2");
+    }
+
+    private void ResetMetrics()
+    {
+        // Implementation for resetting metrics
+    }
+
+    private void ExportMetrics()
+    {
+        // Implementation for exporting metrics
+    }
+}

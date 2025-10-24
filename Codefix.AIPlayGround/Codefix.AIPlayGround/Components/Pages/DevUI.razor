@@ -1,0 +1,605 @@
+@page "/codefixui"
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<PageTitle>CODEFIXUI - AI PlayGround</PageTitle>
+
+<div class="devui-container">
+    <!-- CODEFIXUI Header -->
+    <div class="devui-header">
+        <div class="devui-brand">
+            <i class="bi bi-code-slash me-2"></i>
+            <span>CODEFIXUI</span>
+            <div class="version-badge">v2.0.0</div>
+        </div>
+        <div class="devui-actions">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleTheme" title="Toggle Theme">
+                <i class="bi @(isDarkTheme ? "bi-sun" : "bi-moon")"></i>
+                <span class="btn-label">Theme</span>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ExportSession" title="Export Session">
+                <i class="bi bi-download"></i>
+                <span class="btn-label">Export</span>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ImportSession" title="Import Session">
+                <i class="bi bi-upload"></i>
+                <span class="btn-label">Import</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="devui-content">
+        <!-- Left Sidebar - Workflow List -->
+        <div class="devui-sidebar">
+            <div class="sidebar-header">
+                <h6><i class="bi bi-diagram-3 me-2"></i>Workflows</h6>
+                <button class="btn btn-sm btn-primary" @onclick="CreateNewWorkflow" title="Create New Workflow">
+                    <i class="bi bi-plus"></i>
+                    <span class="btn-label">New</span>
+                </button>
+            </div>
+            <div class="workflow-list">
+                @foreach (var workflow in workflows)
+                {
+                    <div class="workflow-item @(workflow.Id == selectedWorkflowId ? "selected" : "")" 
+                         @onclick="@(() => SelectWorkflow(workflow.Id))">
+                        <div class="workflow-info">
+                            <div class="workflow-name">@workflow.Name</div>
+                            <div class="workflow-status @workflow.Status.ToString().ToLower()">@workflow.Status</div>
+                        </div>
+                        <div class="workflow-actions">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => EditWorkflow(workflow.Id))" title="Edit Workflow">
+                                <i class="bi bi-pencil"></i>
+                                <span class="btn-label">Edit</span>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteWorkflow(workflow.Id))" title="Delete Workflow">
+                                <i class="bi bi-trash"></i>
+                                <span class="btn-label">Delete</span>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="devui-main">
+            <!-- Tab Navigation -->
+            <div class="devui-tabs">
+                <button class="tab-btn @(activeTab == "workflow" ? "active" : "")" @onclick="@(() => SetActiveTab("workflow"))" title="Workflow Visualization">
+                    <i class="bi bi-diagram-2 me-2"></i>Workflow Viewer
+                </button>
+                <button class="tab-btn @(activeTab == "playground" ? "active" : "")" @onclick="@(() => SetActiveTab("playground"))" title="Agent Testing">
+                    <i class="bi bi-play-circle me-2"></i>Agent Playground
+                </button>
+                <button class="tab-btn @(activeTab == "analytics" ? "active" : "")" @onclick="@(() => SetActiveTab("analytics"))" title="Performance Analytics">
+                    <i class="bi bi-graph-up me-2"></i>Analytics
+                </button>
+                <button class="tab-btn @(activeTab == "settings" ? "active" : "")" @onclick="@(() => SetActiveTab("settings"))" title="Configuration">
+                    <i class="bi bi-gear me-2"></i>Settings
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="devui-tab-content">
+                @if (activeTab == "workflow")
+                {
+                    @if (!string.IsNullOrEmpty(selectedWorkflowId))
+                    {
+                        var selectedWorkflow = workflows.FirstOrDefault(w => w.Id == selectedWorkflowId);
+                        @if (selectedWorkflow != null)
+                        {
+                            <DevUIWorkflowViewer Workflow="@selectedWorkflow" OnWorkflowChanged="@OnWorkflowChanged" />
+                        }
+                    }
+                    else
+                    {
+                        <div class="no-workflow-selected">
+                            <i class="bi bi-diagram-3"></i>
+                            <h4>Select a Workflow</h4>
+                            <p>Choose a workflow from the sidebar to start debugging and monitoring.</p>
+                            <button class="btn btn-primary" @onclick="CreateNewWorkflow">
+                                <i class="bi bi-plus me-2"></i>Create New Workflow
+                            </button>
+                        </div>
+                    }
+                }
+                else if (activeTab == "playground")
+                {
+                    <AgentPlayground />
+                }
+                else if (activeTab == "analytics")
+                {
+                    <AnalyticsDashboard />
+                }
+                else if (activeTab == "settings")
+                {
+                    <DevUISettings />
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .devui-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #ffffff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .devui-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .devui-brand {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .version-badge {
+        background: #0078d4;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 8px;
+    }
+
+    .devui-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-label {
+        margin-left: 4px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .btn-sm .btn-label {
+        font-size: 10px;
+    }
+
+    .devui-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .devui-sidebar {
+        width: 300px;
+        background: #252526;
+        border-right: 1px solid #3e3e42;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .sidebar-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .workflow-list {
+        flex: 1;
+        overflow: auto;
+        padding: 8px;
+    }
+
+    .workflow-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        margin-bottom: 4px;
+        background: #2d2d30;
+        border: 1px solid #3e3e42;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .workflow-item:hover {
+        background: #3e3e42;
+    }
+
+    .workflow-item.selected {
+        background: #0078d4;
+        border-color: #0078d4;
+    }
+
+    .workflow-info {
+        flex: 1;
+    }
+
+    .workflow-name {
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+
+    .workflow-status {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .workflow-status.draft {
+        background: #6c757d;
+        color: white;
+    }
+
+    .workflow-status.running {
+        background: #28a745;
+        color: white;
+    }
+
+    .workflow-status.completed {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .workflow-status.error {
+        background: #dc3545;
+        color: white;
+    }
+
+    .workflow-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .devui-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .devui-tabs {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        padding: 0 16px;
+    }
+
+    .tab-btn {
+        padding: 12px 16px;
+        background: none;
+        border: none;
+        color: #cccccc;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+        background: #3e3e42;
+        color: white;
+    }
+
+    .tab-btn.active {
+        color: #0078d4;
+        border-bottom-color: #0078d4;
+        background: #1e1e1e;
+    }
+
+    .devui-tab-content {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .no-workflow-selected {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        color: #888888;
+    }
+
+    .no-workflow-selected i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        color: #3e3e42;
+    }
+
+    .no-workflow-selected h4 {
+        margin-bottom: 8px;
+        color: #ffffff;
+    }
+
+    .no-workflow-selected p {
+        margin-bottom: 24px;
+        max-width: 400px;
+    }
+</style>
+
+<script src="~/js/devui.js"></script>
+
+@code {
+    private List<Models.WorkflowDefinition> workflows = new();
+    private string selectedWorkflowId = "";
+    private string activeTab = "workflow";
+    private bool isDarkTheme = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkflows();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Check if devUI is available before calling
+                var isAvailable = await JSRuntime.InvokeAsync<bool>("eval", "typeof window.devUI !== 'undefined'");
+                if (isAvailable)
+                {
+                    await JSRuntime.InvokeVoidAsync("devUI.initialize");
+                }
+                else
+                {
+                    Console.WriteLine("devUI not available, waiting for script to load...");
+                    await Task.Delay(500);
+                    await JSRuntime.InvokeVoidAsync("devUI.initialize");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"JavaScript initialization error: {ex.Message}");
+                // Fallback: try to initialize after a longer delay
+                await Task.Delay(1000);
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("devUI.initialize");
+                }
+                catch
+                {
+                    Console.WriteLine("JavaScript initialization failed after retry");
+                }
+            }
+        }
+    }
+
+    private async Task LoadWorkflows()
+    {
+        workflows = await WorkflowService.GetAllWorkflowsAsync();
+        
+        // If no workflows exist, create some sample ones for demonstration
+        if (!workflows.Any())
+        {
+            await CreateSampleWorkflows();
+        }
+        
+        // Auto-select the first workflow if none is selected
+        if (string.IsNullOrEmpty(selectedWorkflowId) && workflows.Any())
+        {
+            selectedWorkflowId = workflows.First().Id;
+        }
+        
+        // Debug: Log workflow information
+        Console.WriteLine($"Loaded {workflows.Count} workflows");
+        foreach (var workflow in workflows)
+        {
+            Console.WriteLine($"Workflow: {workflow.Name} - Nodes: {workflow.Nodes?.Count ?? 0}, Connections: {workflow.Connections?.Count ?? 0}");
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task CreateSampleWorkflows()
+    {
+        Console.WriteLine("Creating sample workflows...");
+        // Create sample workflows for demonstration
+        var sampleWorkflows = new[]
+        {
+            new Models.WorkflowDefinition
+            {
+                Id = "sample-1",
+                Name = "AI Code Review Workflow",
+                Description = "Automated code review using AI agents",
+                Status = Models.WorkflowStatus.Draft,
+                Nodes = new List<EnhancedWorkflowNode>
+                {
+                    new() { Id = "start", Name = "Start", Type = "StartNode", X = 50, Y = 100 },
+                    new() { Id = "llm-1", Name = "Code Analyzer", Type = "LLMAgent", X = 200, Y = 100 },
+                    new() { Id = "tool-1", Name = "Security Check", Type = "ToolAgent", X = 350, Y = 100 },
+                    new() { Id = "conditional-1", Name = "Quality Gate", Type = "ConditionalAgent", X = 500, Y = 100 },
+                    new() { Id = "end", Name = "End", Type = "EndNode", X = 650, Y = 100 }
+                },
+                Connections = new List<EnhancedWorkflowConnection>
+                {
+                    new() { Id = "conn-1", FromNodeId = "start", ToNodeId = "llm-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-2", FromNodeId = "llm-1", ToNodeId = "tool-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-3", FromNodeId = "tool-1", ToNodeId = "conditional-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-4", FromNodeId = "conditional-1", ToNodeId = "end", FromPort = "output", ToPort = "input" }
+                }
+            },
+            new Models.WorkflowDefinition
+            {
+                Id = "sample-2",
+                Name = "Document Processing Pipeline",
+                Description = "Process and analyze documents with multiple AI agents",
+                Status = Models.WorkflowStatus.Running,
+                Nodes = new List<EnhancedWorkflowNode>
+                {
+                    new() { Id = "start-2", Name = "Start", Type = "StartNode", X = 50, Y = 200 },
+                    new() { Id = "parallel-1", Name = "Parallel Processing", Type = "ParallelAgent", X = 200, Y = 200 },
+                    new() { Id = "llm-2", Name = "Content Analyzer", Type = "LLMAgent", X = 350, Y = 150 },
+                    new() { Id = "llm-3", Name = "Sentiment Analyzer", Type = "LLMAgent", X = 350, Y = 250 },
+                    new() { Id = "mcp-1", Name = "External API", Type = "MCPAgent", X = 500, Y = 200 },
+                    new() { Id = "end-2", Name = "End", Type = "EndNode", X = 650, Y = 200 }
+                },
+                Connections = new List<EnhancedWorkflowConnection>
+                {
+                    new() { Id = "conn-5", FromNodeId = "start-2", ToNodeId = "parallel-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-6", FromNodeId = "parallel-1", ToNodeId = "llm-2", FromPort = "output1", ToPort = "input" },
+                    new() { Id = "conn-7", FromNodeId = "parallel-1", ToNodeId = "llm-3", FromPort = "output2", ToPort = "input" },
+                    new() { Id = "conn-8", FromNodeId = "llm-2", ToNodeId = "mcp-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-9", FromNodeId = "llm-3", ToNodeId = "mcp-1", FromPort = "output", ToPort = "input" },
+                    new() { Id = "conn-10", FromNodeId = "mcp-1", ToNodeId = "end-2", FromPort = "output", ToPort = "input" }
+                }
+            }
+        };
+
+        foreach (var workflow in sampleWorkflows)
+        {
+            workflows.Add(workflow);
+            Console.WriteLine($"Added workflow: {workflow.Name} - Nodes: {workflow.Nodes?.Count ?? 0}, Connections: {workflow.Connections?.Count ?? 0}");
+        }
+        Console.WriteLine($"Total workflows after adding samples: {workflows.Count}");
+    }
+
+    private void SelectWorkflow(string workflowId)
+    {
+        selectedWorkflowId = workflowId;
+        StateHasChanged();
+    }
+
+    private async Task CreateNewWorkflow()
+    {
+        var newWorkflow = await WorkflowService.CreateWorkflowAsync("New Workflow", "Created from DevUI");
+        workflows.Add(newWorkflow);
+        selectedWorkflowId = newWorkflow.Id;
+        StateHasChanged();
+    }
+
+    private async Task EditWorkflow(string workflowId)
+    {
+        // Navigate to workflow editor
+        // This would typically navigate to a workflow editor page
+    }
+
+    private async Task DeleteWorkflow(string workflowId)
+    {
+        var workflow = workflows.FirstOrDefault(w => w.Id == workflowId);
+        if (workflow != null)
+        {
+            await WorkflowService.DeleteWorkflowAsync(workflowId);
+            workflows.Remove(workflow);
+            if (selectedWorkflowId == workflowId)
+            {
+                selectedWorkflowId = "";
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task OnWorkflowChanged(Models.WorkflowDefinition workflow)
+    {
+        var index = workflows.FindIndex(w => w.Id == workflow.Id);
+        if (index >= 0)
+        {
+            workflows[index] = workflow;
+        }
+        else
+        {
+            workflows.Add(workflow);
+        }
+        StateHasChanged();
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDarkTheme = !isDarkTheme;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("devUI.toggleTheme", isDarkTheme);
+        }
+        catch
+        {
+            // Fallback: apply theme directly via CSS
+            await JSRuntime.InvokeVoidAsync("eval", $"document.documentElement.setAttribute('data-theme', '{(isDarkTheme ? "dark" : "light")}')");
+        }
+        StateHasChanged();
+    }
+
+    private async Task ExportSession()
+    {
+        var sessionData = new
+        {
+            workflows = workflows,
+            selectedWorkflowId = selectedWorkflowId,
+            activeTab = activeTab,
+            timestamp = DateTime.UtcNow
+        };
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("devUI.exportData", sessionData, "codefixui-session.json");
+            await JSRuntime.InvokeVoidAsync("devUI.showNotification", "Session exported successfully!", "success");
+        }
+        catch
+        {
+            // Fallback: simple download
+            var json = System.Text.Json.JsonSerializer.Serialize(sessionData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                const blob = new Blob([{json}], {{ type: 'application/json' }});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'codefixui-session.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            ");
+        }
+    }
+
+    private async Task ImportSession()
+    {
+        await JSRuntime.InvokeVoidAsync("devUI.importSession");
+    }
+
+    [JSInvokable]
+    public static void OnNodeSelected(string nodeId)
+    {
+        // Handle node selection from JavaScript
+        Console.WriteLine($"Node selected: {nodeId}");
+    }
+
+    [JSInvokable]
+    public static void OnSessionImported(object sessionData)
+    {
+        // Handle session import from JavaScript
+        Console.WriteLine("Session imported from JavaScript");
+    }
+}

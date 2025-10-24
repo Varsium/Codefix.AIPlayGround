@@ -1,0 +1,323 @@
+@using Codefix.AIPlayGround.Models
+
+<div class="variable-inspector">
+    @if (SelectedNode != null)
+    {
+        <div class="inspector-header">
+            <h6><i class="bi bi-code-square me-2"></i>@SelectedNode.Name</h6>
+            <div class="node-type-badge">@SelectedNode.Type</div>
+        </div>
+
+        <div class="inspector-content">
+            <!-- Input Variables -->
+            <div class="variable-section">
+                <h6 class="section-title">
+                    <i class="bi bi-arrow-down-circle me-2"></i>Input Variables
+                </h6>
+                <div class="variable-list">
+                    @foreach (var input in GetInputVariables())
+                    {
+                        <div class="variable-item">
+                            <div class="variable-name">@input.Key</div>
+                            <div class="variable-value">@FormatValue(input.Value)</div>
+                            <div class="variable-type">@GetValueType(input.Value)</div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Output Variables -->
+            <div class="variable-section">
+                <h6 class="section-title">
+                    <i class="bi bi-arrow-up-circle me-2"></i>Output Variables
+                </h6>
+                <div class="variable-list">
+                    @foreach (var output in GetOutputVariables())
+                    {
+                        <div class="variable-item">
+                            <div class="variable-name">@output.Key</div>
+                            <div class="variable-value">@FormatValue(output.Value)</div>
+                            <div class="variable-type">@GetValueType(output.Value)</div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Internal State -->
+            <div class="variable-section">
+                <h6 class="section-title">
+                    <i class="bi bi-gear me-2"></i>Internal State
+                </h6>
+                <div class="variable-list">
+                    @foreach (var state in GetInternalState())
+                    {
+                        <div class="variable-item">
+                            <div class="variable-name">@state.Key</div>
+                            <div class="variable-value">@FormatValue(state.Value)</div>
+                            <div class="variable-type">@GetValueType(state.Value)</div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Memory Context -->
+            <div class="variable-section">
+                <h6 class="section-title">
+                    <i class="bi bi-memory me-2"></i>Memory Context
+                </h6>
+                <div class="memory-context">
+                    <div class="context-item">
+                        <span class="context-label">Conversation History:</span>
+                        <span class="context-value">@GetConversationHistoryCount() messages</span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Token Usage:</span>
+                        <span class="context-value">@GetTokenUsage() tokens</span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Context Window:</span>
+                        <span class="context-value">@GetContextWindowUsage()% used</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="no-selection">
+            <i class="bi bi-mouse me-2"></i>
+            <span>Select a node to inspect variables</span>
+        </div>
+    }
+</div>
+
+<style>
+    .variable-inspector {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #252526;
+        color: #cccccc;
+    }
+
+    .inspector-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .inspector-header h6 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .node-type-badge {
+        background: #0078d4;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .inspector-content {
+        flex: 1;
+        overflow: auto;
+        padding: 8px 0;
+    }
+
+    .variable-section {
+        margin-bottom: 16px;
+    }
+
+    .section-title {
+        padding: 8px 16px;
+        margin: 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: #0078d4;
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .variable-list {
+        padding: 0 16px;
+    }
+
+    .variable-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .variable-item:last-child {
+        border-bottom: none;
+    }
+
+    .variable-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: #ffffff;
+    }
+
+    .variable-value {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 12px;
+        color: #cccccc;
+        background: #1e1e1e;
+        padding: 4px 8px;
+        border-radius: 4px;
+        word-break: break-all;
+        max-height: 60px;
+        overflow: auto;
+    }
+
+    .variable-type {
+        font-size: 11px;
+        color: #888888;
+        font-style: italic;
+    }
+
+    .memory-context {
+        padding: 0 16px;
+    }
+
+    .context-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .context-item:last-child {
+        border-bottom: none;
+    }
+
+    .context-label {
+        font-size: 12px;
+        color: #cccccc;
+    }
+
+    .context-value {
+        font-size: 12px;
+        color: #0078d4;
+        font-weight: 500;
+    }
+
+    .no-selection {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #888888;
+        font-size: 14px;
+    }
+</style>
+
+@code {
+    [Parameter] public EnhancedWorkflowNode? SelectedNode { get; set; }
+    [Parameter] public object? ExecutionState { get; set; }
+
+    private Dictionary<string, object> GetInputVariables()
+    {
+        if (SelectedNode == null) return new Dictionary<string, object>();
+
+        return new Dictionary<string, object>
+        {
+            { "user_input", "Hello, how can I help you today?" },
+            { "context", "Customer service conversation" },
+            { "session_id", "sess_12345" },
+            { "user_id", "user_67890" },
+            { "timestamp", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
+        };
+    }
+
+    private Dictionary<string, object> GetOutputVariables()
+    {
+        if (SelectedNode == null) return new Dictionary<string, object>();
+
+        return new Dictionary<string, object>
+        {
+            { "response", "I'd be happy to help you with that. Let me gather some information first." },
+            { "confidence", 0.95 },
+            { "intent", "customer_support" },
+            { "entities", new[] { "product_inquiry", "billing_question" } },
+            { "next_action", "gather_details" }
+        };
+    }
+
+    private Dictionary<string, object> GetInternalState()
+    {
+        if (SelectedNode == null) return new Dictionary<string, object>();
+
+        return new Dictionary<string, object>
+        {
+            { "execution_status", "running" },
+            { "start_time", DateTime.Now.AddSeconds(-30) },
+            { "retry_count", 0 },
+            { "error_count", 0 },
+            { "memory_usage", "45.2 MB" },
+            { "cpu_usage", "12.5%" }
+        };
+    }
+
+    private int GetConversationHistoryCount()
+    {
+        return Random.Shared.Next(5, 25);
+    }
+
+    private int GetTokenUsage()
+    {
+        return Random.Shared.Next(100, 2000);
+    }
+
+    private int GetContextWindowUsage()
+    {
+        return Random.Shared.Next(20, 80);
+    }
+
+    private string FormatValue(object value)
+    {
+        if (value == null) return "null";
+        
+        if (value is string str)
+        {
+            return $"\"{str}\"";
+        }
+        
+        if (value is Array array)
+        {
+            var items = array.Cast<object>().Take(3).Select(FormatValue);
+            var result = $"[{string.Join(", ", items)}";
+            if (array.Length > 3)
+                result += $", ... ({array.Length - 3} more)";
+            result += "]";
+            return result;
+        }
+        
+        return value.ToString() ?? "null";
+    }
+
+    private string GetValueType(object value)
+    {
+        if (value == null) return "null";
+        
+        return value.GetType().Name switch
+        {
+            "String" => "string",
+            "Int32" => "int",
+            "Double" => "double",
+            "Boolean" => "bool",
+            "DateTime" => "DateTime",
+            "String[]" => "string[]",
+            _ => value.GetType().Name
+        };
+    }
+}

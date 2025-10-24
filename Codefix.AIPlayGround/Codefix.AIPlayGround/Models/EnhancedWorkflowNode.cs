@@ -9,6 +9,10 @@ public class EnhancedWorkflowNode : WorkflowNode
     public MicrosoftAgentFrameworkType? MicrosoftAgentFrameworkType { get; set; }
     public WorkflowNodeOrchestrationSettings OrchestrationSettings { get; set; } = new();
     
+    // PeerLLM integration
+    public PeerLLMAgentDefinition? PeerLLMAgentDefinition { get; set; }
+    public PeerLLMAgentType? PeerLLMAgentType { get; set; }
+    
     public new List<ConnectionPort> InputPorts { get; set; } = new();
     public new List<ConnectionPort> OutputPorts { get; set; } = new();
     public NodeValidationRules ValidationRules { get; set; } = new();
