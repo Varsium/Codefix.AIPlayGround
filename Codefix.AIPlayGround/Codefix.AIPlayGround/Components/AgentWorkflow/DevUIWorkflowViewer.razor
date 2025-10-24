@@ -1,0 +1,853 @@
+@using Codefix.AIPlayGround.Models
+@using Codefix.AIPlayGround.Services
+@inject IEnhancedWorkflowService WorkflowService
+@inject IJSRuntime JSRuntime
+
+<div class="devui-workflow-viewer">
+    <!-- DevUI Header -->
+    <div class="devui-header">
+        <div class="devui-title">
+            <i class="bi bi-diagram-3 me-2"></i>
+            <span>Workflow Execution</span>
+            <div class="workflow-status">
+                <span class="status-badge @GetStatusClass(CurrentWorkflow.Status)">
+                    @CurrentWorkflow.Status
+                </span>
+            </div>
+        </div>
+        <div class="devui-controls">
+            <button class="btn btn-sm btn-success" @onclick="StartExecution" disabled="@(isExecuting)">
+                <i class="bi bi-play-fill"></i> Run
+            </button>
+            <button class="btn btn-sm btn-warning" @onclick="PauseExecution" disabled="@(!isExecuting)">
+                <i class="bi bi-pause-fill"></i> Pause
+            </button>
+            <button class="btn btn-sm btn-danger" @onclick="StopExecution" disabled="@(!isExecuting)">
+                <i class="bi bi-stop-fill"></i> Stop
+            </button>
+            <button class="btn btn-sm btn-secondary" @onclick="StepExecution" disabled="@(!isExecuting)">
+                <i class="bi bi-skip-forward"></i> Step
+            </button>
+        </div>
+    </div>
+
+    <div class="devui-content">
+        <!-- Left Panel - Flow Visualization -->
+        <div class="flow-panel">
+            <div class="flow-header">
+                <h6><i class="bi bi-diagram-2 me-2"></i>Execution Flow</h6>
+                <div class="flow-controls">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ZoomIn">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ResetZoom">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flow-canvas" @ref="flowCanvasRef">
+                <div class="flow-canvas-content" style="transform: scale(@zoomLevel); transform-origin: top left;">
+                    <!-- SVG for connections - must be first to be behind nodes -->
+                    <svg class="flow-connections" style="position: absolute; top: 0; left: 0; width: 2000px; height: 2000px; pointer-events: none; z-index: 1;">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                                    refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#0078d4" />
+                            </marker>
+                            <marker id="arrowhead-active" markerWidth="10" markerHeight="7" 
+                                    refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#28a745" />
+                            </marker>
+                            <marker id="arrowhead-completed" markerWidth="10" markerHeight="7" 
+                                    refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#17a2b8" />
+                            </marker>
+                            <marker id="arrowhead-error" markerWidth="10" markerHeight="7" 
+                                    refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#dc3545" />
+                            </marker>
+                        </defs>
+                        
+                        @if (CurrentWorkflow.Connections != null && CurrentWorkflow.Connections.Any())
+                        {
+                            @foreach (var connection in CurrentWorkflow.Connections)
+                            {
+                                var path = GetConnectionPath(connection);
+                                @if (!string.IsNullOrEmpty(path))
+                                {
+                                    <path d="@path" 
+                                          class="connection @GetConnectionExecutionClass(connection)"
+                                          fill="none" 
+                                          marker-end="@GetConnectionMarker(connection)" />
+                                }
+                            }
+                        }
+                    </svg>
+
+                    <!-- Debug Info -->
+                    <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 100;">
+                        <div>Workflow: @CurrentWorkflow.Name</div>
+                        <div>Nodes: @(CurrentWorkflow.Nodes?.Count ?? 0)</div>
+                        <div>Connections: @(CurrentWorkflow.Connections?.Count ?? 0)</div>
+                        @if (CurrentWorkflow.Connections != null && CurrentWorkflow.Connections.Any())
+                        {
+                            <div>Connection Details:</div>
+                            @foreach (var conn in CurrentWorkflow.Connections.Take(3))
+                            {
+                                <div style="font-size: 10px;">@conn.FromNodeId → @conn.ToNodeId</div>
+                            }
+                        }
+                    </div>
+                    
+                    <!-- Flow Nodes -->
+                    @foreach (var node in CurrentWorkflow.Nodes)
+                    {
+                        <div class="flow-node @GetNodeExecutionClass(node)" 
+                             style="left: @(node.X)px; top: @(node.Y)px; width: @(node.Width)px;"
+                             data-node-id="@node.Id"
+                             @onclick="@(() => SelectNode(node))">
+                            <div class="node-header">
+                                <div class="node-icon">
+                                    <i class="@GetNodeIcon(node.Type)"></i>
+                                </div>
+                                <div class="node-title">@node.Name</div>
+                                <div class="node-status">
+                                    @if (GetNodeExecutionStatus(node) != ExecutionStatus.NotStarted)
+                                    {
+                                        <i class="bi @GetExecutionIcon(GetNodeExecutionStatus(node))"></i>
+                                    }
+                                </div>
+                            </div>
+                            <div class="node-content">
+                                <div class="node-type">@node.Type</div>
+                                @if (GetNodeExecutionStatus(node) == ExecutionStatus.Running)
+                                {
+                                    <div class="execution-progress">
+                                        <div class="progress-bar" style="width: @(GetNodeProgress(node))%"></div>
+                                    </div>
+                                }
+                            </div>
+                            <div class="node-ports">
+                                <div class="input-ports">
+                                    @foreach (var input in GetNodeInputs(node))
+                                    {
+                                        <div class="port input-port" data-port="@input" title="Input: @input"></div>
+                                    }
+                                </div>
+                                <div class="output-ports">
+                                    @foreach (var output in GetNodeOutputs(node))
+                                    {
+                                        <div class="port output-port" data-port="@output" title="Output: @output"></div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Debugging & Monitoring -->
+        <div class="debug-panel">
+            <div class="debug-tabs">
+                <button class="tab-btn @(activeTab == "variables" ? "active" : "")" @onclick="@(() => SetActiveTab("variables"))">
+                    <i class="bi bi-code-square"></i> Variables
+                </button>
+                <button class="tab-btn @(activeTab == "execution" ? "active" : "")" @onclick="@(() => SetActiveTab("execution"))">
+                    <i class="bi bi-play-circle"></i> Execution
+                </button>
+                <button class="tab-btn @(activeTab == "performance" ? "active" : "")" @onclick="@(() => SetActiveTab("performance"))">
+                    <i class="bi bi-speedometer2"></i> Performance
+                </button>
+                <button class="tab-btn @(activeTab == "logs" ? "active" : "")" @onclick="@(() => SetActiveTab("logs"))">
+                    <i class="bi bi-journal-text"></i> Logs
+                </button>
+            </div>
+
+            <div class="debug-content">
+                @if (activeTab == "variables")
+                {
+                    <VariableInspector SelectedNode="selectedNode" ExecutionState="executionState" />
+                }
+                else if (activeTab == "execution")
+                {
+                    <ExecutionMonitor ExecutionState="executionState" />
+                }
+                else if (activeTab == "performance")
+                {
+                    <PerformanceMonitor ExecutionState="executionState" />
+                }
+                else if (activeTab == "logs")
+                {
+                    <ExecutionLogs ExecutionState="executionState" />
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .devui-workflow-viewer {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+        color: #ffffff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .devui-header {
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .devui-title {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .workflow-status {
+        margin-left: 16px;
+    }
+
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-badge.running {
+        background: #28a745;
+        color: white;
+    }
+
+    .status-badge.paused {
+        background: #ffc107;
+        color: black;
+    }
+
+    .status-badge.stopped {
+        background: #dc3545;
+        color: white;
+    }
+
+    .status-badge.draft {
+        background: #6c757d;
+        color: white;
+    }
+
+    .devui-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .devui-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .flow-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #1e1e1e;
+    }
+
+    .flow-header {
+        background: #2d2d30;
+        padding: 8px 16px;
+        border-bottom: 1px solid #3e3e42;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .flow-controls {
+        display: flex;
+        gap: 4px;
+    }
+
+    .flow-canvas {
+        flex: 1;
+        position: relative;
+        overflow: auto;
+        background: 
+            radial-gradient(circle at 20px 20px, #3e3e42 1px, transparent 1px);
+        background-size: 20px 20px;
+        background-position: 0 0, 10px 10px;
+        min-height: 600px;
+        min-width: 800px;
+    }
+    
+    .flow-canvas-content {
+        position: relative;
+        width: 2000px;
+        height: 2000px;
+        transition: transform 0.2s ease;
+    }
+
+    .flow-node {
+        position: absolute;
+        min-width: 120px;
+        min-height: 60px;
+        background: #2d2d30;
+        border: 2px solid #3e3e42;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+        z-index: 10;
+    }
+
+    .flow-node:hover {
+        border-color: #0078d4;
+        box-shadow: 0 0 10px rgba(0, 120, 212, 0.3);
+    }
+
+    .flow-node.selected {
+        border-color: #0078d4;
+        box-shadow: 0 0 15px rgba(0, 120, 212, 0.5);
+    }
+
+    .flow-node.executing {
+        border-color: #28a745;
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+    }
+
+    .flow-node.completed {
+        border-color: #17a2b8;
+        background: #1a3a3e;
+    }
+
+    .flow-node.error {
+        border-color: #dc3545;
+        background: #3d1a1a;
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .node-icon {
+        margin-right: 8px;
+        font-size: 16px;
+    }
+
+    .node-title {
+        flex: 1;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .node-status {
+        font-size: 12px;
+    }
+
+    .node-content {
+        padding: 8px 12px;
+    }
+
+    .node-type {
+        font-size: 12px;
+        color: #cccccc;
+        margin-bottom: 4px;
+    }
+
+    .execution-progress {
+        height: 4px;
+        background: #3e3e42;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        transition: width 0.3s ease;
+    }
+
+    .node-ports {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+    }
+
+    .input-ports, .output-ports {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .input-ports {
+        left: -6px;
+    }
+
+    .output-ports {
+        right: -6px;
+    }
+
+    .port {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0078d4;
+        border: 2px solid #1e1e1e;
+        margin: 4px 0;
+        pointer-events: all;
+        cursor: pointer;
+    }
+
+    .port:hover {
+        background: #106ebe;
+        transform: scale(1.2);
+    }
+
+    .flow-connections {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+        overflow: visible;
+    }
+
+    .connection {
+        stroke: #0078d4;
+        stroke-width: 2.5;
+        fill: none;
+        transition: all 0.3s ease;
+        pointer-events: stroke;
+        stroke-linecap: round;
+        opacity: 0.9;
+    }
+
+    .connection:hover {
+        stroke: #106ebe;
+        stroke-width: 3.5;
+        opacity: 1;
+    }
+
+    .connection.active {
+        stroke: #28a745;
+        stroke-width: 3;
+        opacity: 1;
+        animation: pulse 2s infinite;
+    }
+
+    .connection.completed {
+        stroke: #17a2b8;
+        stroke-width: 2.5;
+        opacity: 0.8;
+    }
+
+    .connection.error {
+        stroke: #dc3545;
+        stroke-width: 2.5;
+        opacity: 1;
+    }
+
+    @@keyframes pulse {
+        0% { stroke-width: 3; opacity: 1; }
+        50% { stroke-width: 4; opacity: 0.7; }
+        100% { stroke-width: 3; opacity: 1; }
+    }
+
+    .debug-panel {
+        width: 350px;
+        background: #252526;
+        border-left: 1px solid #3e3e42;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .debug-tabs {
+        display: flex;
+        background: #2d2d30;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 8px 12px;
+        background: none;
+        border: none;
+        color: #cccccc;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+        background: #3e3e42;
+        color: white;
+    }
+
+    .tab-btn.active {
+        background: #0078d4;
+        color: white;
+    }
+
+    .debug-content {
+        flex: 1;
+        overflow: auto;
+    }
+</style>
+
+@code {
+    [Parameter] public Models.WorkflowDefinition? Workflow { get; set; }
+    [Parameter] public EventCallback<Models.WorkflowDefinition> OnWorkflowChanged { get; set; }
+
+    private Models.WorkflowDefinition CurrentWorkflow = new();
+    private EnhancedWorkflowNode? selectedNode;
+    private bool isExecuting = false;
+    private string activeTab = "variables";
+    private double zoomLevel = 1.0;
+    private ElementReference flowCanvasRef;
+    private ExecutionState executionState = new();
+
+    private enum ExecutionStatus
+    {
+        NotStarted,
+        Running,
+        Completed,
+        Error,
+        Paused
+    }
+
+    private class ExecutionState
+    {
+        public Dictionary<string, ExecutionStatus> NodeStatuses { get; set; } = new();
+        public Dictionary<string, object> NodeVariables { get; set; } = new();
+        public List<ExecutionLog> Logs { get; set; } = new();
+        public Dictionary<string, PerformanceMetrics> NodeMetrics { get; set; } = new();
+        public int CurrentStep { get; set; } = 0;
+        public bool IsPaused { get; set; } = false;
+    }
+
+    private class ExecutionLog
+    {
+        public DateTime Timestamp { get; set; }
+        public string Level { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string NodeId { get; set; } = "";
+    }
+
+    private class PerformanceMetrics
+    {
+        public TimeSpan ExecutionTime { get; set; }
+        public long MemoryUsage { get; set; }
+        public int TokenCount { get; set; }
+        public double CpuUsage { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadWorkflow();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        LoadWorkflow();
+        await base.OnParametersSetAsync();
+    }
+
+    private void LoadWorkflow()
+    {
+        if (Workflow != null)
+        {
+            CurrentWorkflow = Workflow;
+        }
+        else
+        {
+            CurrentWorkflow = new Models.WorkflowDefinition
+            {
+                Id = "default",
+                Name = "New Workflow",
+                Description = "Create a new workflow",
+                Status = Models.WorkflowStatus.Draft,
+                Nodes = new List<EnhancedWorkflowNode>(),
+                Connections = new List<EnhancedWorkflowConnection>()
+            };
+        }
+        
+        // Debug: Log workflow information (only in debug mode)
+        #if DEBUG
+        Console.WriteLine($"Workflow loaded: {CurrentWorkflow.Name}");
+        Console.WriteLine($"Nodes: {CurrentWorkflow.Nodes?.Count ?? 0}");
+        Console.WriteLine($"Connections: {CurrentWorkflow.Connections?.Count ?? 0}");
+        if (CurrentWorkflow.Connections != null)
+        {
+            foreach (var connection in CurrentWorkflow.Connections)
+            {
+                Console.WriteLine($"Connection: {connection.FromNodeId} -> {connection.ToNodeId}");
+            }
+        }
+        #endif
+    }
+
+    private string GetStatusClass(Models.WorkflowStatus status)
+    {
+        return status switch
+        {
+            Models.WorkflowStatus.Running => "running",
+            Models.WorkflowStatus.Paused => "paused",
+            Models.WorkflowStatus.Completed => "stopped",
+            Models.WorkflowStatus.Failed => "stopped",
+            _ => "draft"
+        };
+    }
+
+    private string GetNodeExecutionClass(EnhancedWorkflowNode node)
+    {
+        var status = GetNodeExecutionStatus(node);
+        return status switch
+        {
+            ExecutionStatus.Running => "executing",
+            ExecutionStatus.Completed => "completed",
+            ExecutionStatus.Error => "error",
+            _ => ""
+        };
+    }
+
+    private ExecutionStatus GetNodeExecutionStatus(EnhancedWorkflowNode node)
+    {
+        return executionState.NodeStatuses.GetValueOrDefault(node.Id, ExecutionStatus.NotStarted);
+    }
+
+    private string GetExecutionIcon(ExecutionStatus status)
+    {
+        return status switch
+        {
+            ExecutionStatus.Running => "bi-arrow-clockwise",
+            ExecutionStatus.Completed => "bi-check-circle",
+            ExecutionStatus.Error => "bi-exclamation-circle",
+            ExecutionStatus.Paused => "bi-pause-circle",
+            _ => ""
+        };
+    }
+
+    private int GetNodeProgress(EnhancedWorkflowNode node)
+    {
+        // Simulate progress based on execution time
+        return Random.Shared.Next(0, 101);
+    }
+
+    private List<string> GetNodeInputs(EnhancedWorkflowNode node)
+    {
+        return new List<string> { "input1", "input2" };
+    }
+
+    private List<string> GetNodeOutputs(EnhancedWorkflowNode node)
+    {
+        return new List<string> { "output1", "output2" };
+    }
+
+    private string GetConnectionPath(EnhancedWorkflowConnection connection)
+    {
+        var fromNode = CurrentWorkflow.Nodes?.FirstOrDefault(n => n.Id == connection.FromNodeId);
+        var toNode = CurrentWorkflow.Nodes?.FirstOrDefault(n => n.Id == connection.ToNodeId);
+        
+        if (fromNode == null || toNode == null) 
+        {
+            #if DEBUG
+            Console.WriteLine($"Connection {connection.Id}: Missing nodes - From: {connection.FromNodeId}, To: {connection.ToNodeId}");
+            #endif
+            return "";
+        }
+        
+        // Calculate connection points
+        // Start from the right side of the source node (output port)
+        var nodeWidth = fromNode.Width > 0 ? fromNode.Width : 150;
+        var nodeHeight = fromNode.Height > 0 ? fromNode.Height : 80;
+        
+        var startX = fromNode.X + nodeWidth;  // Right edge of source node
+        var startY = fromNode.Y + (nodeHeight / 2);  // Middle of source node height
+        
+        var endX = toNode.X;  // Left edge of target node
+        var endY = toNode.Y + (toNode.Height > 0 ? toNode.Height / 2 : 40);  // Middle of target node height
+        
+        // Calculate control points for bezier curve
+        // The curve should flow horizontally from right to left
+        var deltaX = Math.Abs(endX - startX);
+        var controlPointOffset = Math.Min(deltaX / 2, 100); // Limit the curve amount
+        
+        var controlPoint1X = startX + controlPointOffset;
+        var controlPoint1Y = startY;
+        
+        var controlPoint2X = endX - controlPointOffset;
+        var controlPoint2Y = endY;
+        
+        // Create a cubic bezier curve path
+        var path = $"M {startX} {startY} C {controlPoint1X} {controlPoint1Y}, {controlPoint2X} {controlPoint2Y}, {endX} {endY}";
+        
+        #if DEBUG
+        Console.WriteLine($"Connection {connection.Id}: Path from ({startX},{startY}) to ({endX},{endY})");
+        Console.WriteLine($"  From node: {fromNode.Id} at ({fromNode.X},{fromNode.Y})");
+        Console.WriteLine($"  To node: {toNode.Id} at ({toNode.X},{toNode.Y})");
+        Console.WriteLine($"  Path: {path}");
+        #endif
+        
+        return path;
+    }
+
+    private string GetConnectionExecutionClass(EnhancedWorkflowConnection connection)
+    {
+        // Check if connection is currently active
+        return "active";
+    }
+
+    private string GetConnectionColor(EnhancedWorkflowConnection connection)
+    {
+        return "#0078d4";
+    }
+
+    private string GetConnectionMarker(EnhancedWorkflowConnection connection)
+    {
+        var executionClass = GetConnectionExecutionClass(connection);
+        return executionClass switch
+        {
+            "active" => "url(#arrowhead-active)",
+            "completed" => "url(#arrowhead-completed)",
+            "error" => "url(#arrowhead-error)",
+            _ => "url(#arrowhead)"
+        };
+    }
+
+
+    private void SelectNode(EnhancedWorkflowNode node)
+    {
+        selectedNode = node;
+        StateHasChanged();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task StartExecution()
+    {
+        isExecuting = true;
+        executionState.CurrentStep = 0;
+        executionState.IsPaused = false;
+        
+        // Simulate execution
+        await SimulateExecution();
+    }
+
+    private async Task PauseExecution()
+    {
+        executionState.IsPaused = true;
+        isExecuting = false;
+    }
+
+    private async Task StopExecution()
+    {
+        isExecuting = false;
+        executionState.IsPaused = false;
+        executionState.NodeStatuses.Clear();
+        StateHasChanged();
+    }
+
+    private async Task StepExecution()
+    {
+        if (executionState.IsPaused)
+        {
+            executionState.IsPaused = false;
+            await SimulateExecutionStep();
+        }
+    }
+
+    private async Task SimulateExecution()
+    {
+        foreach (var node in CurrentWorkflow.Nodes)
+        {
+            if (executionState.IsPaused) break;
+            
+            executionState.NodeStatuses[node.Id] = ExecutionStatus.Running;
+            StateHasChanged();
+            
+            await Task.Delay(1000); // Simulate execution time
+            
+            executionState.NodeStatuses[node.Id] = ExecutionStatus.Completed;
+            StateHasChanged();
+        }
+        
+        isExecuting = false;
+    }
+
+    private async Task SimulateExecutionStep()
+    {
+        var nextNode = CurrentWorkflow.Nodes.FirstOrDefault(n => 
+            !executionState.NodeStatuses.ContainsKey(n.Id) || 
+            executionState.NodeStatuses[n.Id] == ExecutionStatus.NotStarted);
+            
+        if (nextNode != null)
+        {
+            executionState.NodeStatuses[nextNode.Id] = ExecutionStatus.Running;
+            StateHasChanged();
+            
+            await Task.Delay(1000);
+            
+            executionState.NodeStatuses[nextNode.Id] = ExecutionStatus.Completed;
+            StateHasChanged();
+        }
+    }
+
+    private void ZoomIn()
+    {
+        zoomLevel = Math.Min(zoomLevel + 0.1, 2.0);
+        StateHasChanged();
+    }
+
+    private void ZoomOut()
+    {
+        zoomLevel = Math.Max(zoomLevel - 0.1, 0.5);
+        StateHasChanged();
+    }
+
+    private void ResetZoom()
+    {
+        zoomLevel = 1.0;
+        StateHasChanged();
+    }
+
+    private string GetNodeIcon(string nodeType)
+    {
+        return nodeType switch
+        {
+            "StartNode" => "bi bi-play-circle",
+            "EndNode" => "bi bi-stop-circle",
+            "LLMAgent" => "bi bi-robot",
+            "ToolAgent" => "bi bi-tools",
+            "ConditionalAgent" => "bi bi-question-circle",
+            "ParallelAgent" => "bi bi-layers",
+            "CheckpointAgent" => "bi bi-bookmark",
+            "MCPAgent" => "bi bi-plug",
+            "PeerLLMAgent" => "bi bi-diagram-3",
+            "FunctionNode" => "bi bi-code-slash",
+            _ => "bi bi-circle"
+        };
+    }
+}
